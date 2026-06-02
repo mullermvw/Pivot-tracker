@@ -60,10 +60,25 @@ button{-webkit-appearance:none;appearance:none;font-family:inherit;cursor:pointe
 .pill{padding:6px 12px;border-radius:8px;border:1px solid #1e3a2f;font-size:12px;font-weight:600;white-space:nowrap;background:#0f2318;color:#6b7280;}
 .pill.active{background:#4ade80;color:#070f09;border:none;}
 .speed-table{background:#0f2318;border-radius:12px;border:1px solid #1e3a2f;overflow:hidden;}
-.speed-row{display:grid;grid-template-columns:1fr 1fr 1fr;padding:9px 16px;border-top:1px solid #1e3a2f;}
+.speed-row{display:grid;grid-template-columns:1fr 1fr 1fr 40px;padding:9px 16px;border-top:1px solid #1e3a2f;}
 .today-banner{background:#1a0f00;border:1px solid #854d0e;border-radius:12px;padding:12px 14px;margin-bottom:16px;cursor:pointer;}
 .fert-irr-needed{border-color:#854d0e!important;}
 .spray-lockout-card{border-color:#7f1d1d!important;}
+/* Calendar styles */
+.cal-grid{width:100%;border-collapse:collapse;font-size:11px;}
+.cal-grid th{background:#0a1a10;color:#4ade80;padding:6px 4px;text-align:center;font-size:10px;text-transform:uppercase;letter-spacing:0.5px;border:1px solid #1e3a2f;position:sticky;top:0;}
+.cal-grid td{border:1px solid #1e3a2f;padding:3px;vertical-align:top;min-width:38px;background:#0f2318;}
+.cal-grid td.pivot-label{background:#0a1a10;color:#60a5fa;font-weight:700;font-size:10px;padding:4px 6px;white-space:nowrap;}
+.cal-grid td.today-col{background:#0d2018;}
+.cal-task{border-radius:4px;padding:2px 4px;margin-bottom:2px;font-size:9px;font-weight:600;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60px;}
+.cal-task.spray{background:#1e3a5f;color:#60a5fa;border-left:2px solid #60a5fa;}
+.cal-task.spread{background:#2d2000;color:#facc15;border-left:2px solid #facc15;}
+.cal-task.done{opacity:0.4;}
+.day-detail-header{background:#0a1a10;border-radius:12px;padding:14px;margin-bottom:16px;}
+.day-task-card{background:#0f2318;border:1px solid #1e3a2f;border-radius:10px;padding:12px;margin-bottom:10px;}
+.move-day-btn{padding:5px 8px;border-radius:6px;border:1px solid #1e3a2f;background:#0a1a10;color:#9ca3af;font-size:10px;cursor:pointer;margin-right:4px;}
+.move-day-btn:hover{border-color:#4ade80;color:#4ade80;}
+.diary-box{background:#0a1a10;border:1px solid #1e3a2f;border-radius:10px;padding:12px;margin-bottom:16px;}
 </style>
 </head>
 <body>
@@ -88,6 +103,7 @@ button{-webkit-appearance:none;appearance:none;font-family:inherit;cursor:pointe
   <div id="pg-tables" class="page"></div>
   <div id="pg-planner" class="page"></div>
   <div id="pg-history" class="page"></div>
+  <div id="pg-calendar" class="page"></div>
 
   <!-- BOTTOM NAV -->
   <div class="nav">
@@ -95,6 +111,7 @@ button{-webkit-appearance:none;appearance:none;font-family:inherit;cursor:pointe
     <button class="nav-btn" onclick="showPage('planner')"><div class="nav-icon">📅</div><div class="nav-lbl" id="nl-planner">Planner</div></button>
     <button class="nav-btn" onclick="showPage('records')"><div class="nav-icon">📋</div><div class="nav-lbl" id="nl-records">Records</div></button>
     <button class="nav-btn" onclick="showPage('tables')"><div class="nav-icon">⚡</div><div class="nav-lbl" id="nl-tables">Tables</div></button>
+    <button class="nav-btn" onclick="showPage('calendar')"><div class="nav-icon">📆</div><div class="nav-lbl" id="nl-calendar">Calendar</div></button>
     <button class="nav-btn" onclick="showPage('history')"><div class="nav-icon">📜</div><div class="nav-lbl" id="nl-history">History</div></button>
   </div>
 
@@ -173,8 +190,13 @@ let state = {
   pendingStart: null,
   preScheduled: [], // [{id,pivot,scheduledTime,speed,mode,note,notified}]
   plantingHistory: {}, // {P0:[{date,plantedAt,resetAt,notes}], ...}
+  irrigHistory: {}, // {P0:[{startTime,stopTime,mode,speed,mmApplied,m3,season}]}
   historyLog: [], // [{id,timestamp,pivot,action,detail}]
   histTab: 'log',
+  calView: 'grid',       // 'grid' or 'day'
+  calSelDay: 'Mon',      // selected day for day view
+  calWeekLabel: 'Week 1 Jun – 7 Jun 2026',
+  dayNotes: {Mon:'',Tue:'',Wed:'',Thu:'',Fri:'',Sat:'',Sun:''},  // diary per day
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -213,8 +235,17 @@ function fmtDate(d){return new Date(d).toLocaleDateString("en-ZA",{day:"2-digit"
 function drawCircle(id,pct,mode,size,active,warn){
   const cx=size/2,cy=size/2,r=size*0.38,sw=size*0.13;
   const circ=2*Math.PI*r;
-  const arcMap={'Full Circle':1,'Top Side':0.5,'Bottom Side':0.5,'Top Left Quarter':0.25,'Top Right Quarter':0.25,'Bottom Left Quarter':0.25,'Bottom Right Quarter':0.25};
-  const rotMap={'Full Circle':-90,'Top Side':-90,'Bottom Side':90,'Top Left Quarter':180,'Top Right Quarter':-90,'Bottom Left Quarter':90,'Bottom Right Quarter':0};
+  const arcMap={'Full Circle':1,'Top Side':0.5,'Bottom Side':0.5,
+    'Top Left Quarter':0.25,'Top Right Quarter':0.25,'Bottom Left Quarter':0.25,'Bottom Right Quarter':0.25,
+    'Top Left Eighth':0.125,'Top Right Eighth':0.125,'Upper Right Eighth':0.125,'Lower Right Eighth':0.125,
+    'Bottom Right Eighth':0.125,'Bottom Left Eighth':0.125,'Lower Left Eighth':0.125,'Upper Left Eighth':0.125};
+  const rotMap={
+    'Full Circle':-90,'Top Side':-90,'Bottom Side':90,
+    'Top Left Quarter':180,'Top Right Quarter':-90,'Bottom Left Quarter':90,'Bottom Right Quarter':0,
+    'Top Left Eighth':-180,'Top Right Eighth':-90,'Upper Right Eighth':-45,
+    'Lower Right Eighth':0,'Bottom Right Eighth':45,'Bottom Left Eighth':90,
+    'Lower Left Eighth':135,'Upper Left Eighth':180
+  };
   const arc=arcMap[mode]||1;
   const rot=rotMap[mode]!=null?rotMap[mode]:-90;
   const totalArc=circ*arc,filledArc=totalArc*(pct/100);
@@ -222,6 +253,33 @@ function drawCircle(id,pct,mode,size,active,warn){
   const remC=warn?"#450a0a":"#2d5a3d";
   const fillC=warn?"#f87171":"#4ade80";
   const dotC=active?(warn?"#f87171":"#4ade80"):"#374151";
+
+  // Draw divider lines for visual reference
+  let divLines="";
+  if(mode==='Top Side'||mode==='Bottom Side'){
+    divLines=`<line x1="${cx-r-sw/2}" y1="${cy}" x2="${cx+r+sw/2}" y2="${cy}" stroke="#1e3a2f" stroke-width="1" stroke-dasharray="2,2"/>`;
+  } else if(mode.includes('Quarter')){
+    divLines=`<line x1="${cx-r-sw/2}" y1="${cy}" x2="${cx+r+sw/2}" y2="${cy}" stroke="#1e3a2f" stroke-width="1" stroke-dasharray="2,2"/>
+    <line x1="${cx}" y1="${cy-r-sw/2}" x2="${cx}" y2="${cy+r+sw/2}" stroke="#1e3a2f" stroke-width="1" stroke-dasharray="2,2"/>`;
+  } else if(mode.includes('Eighth')){
+    // All 8 divider lines (every 45°)
+    const divR=r+sw/2;
+    const lines=Array.from({length:8},(_,i)=>{
+      const a=(i*45-90)*Math.PI/180;
+      return`<line x1="${cx}" y1="${cy}" x2="${cx+divR*Math.cos(a)}" y2="${cy+divR*Math.sin(a)}" stroke="#1e3a2f" stroke-width="1" stroke-dasharray="2,2"/>`;
+    }).join('');
+    divLines=lines;
+  }
+
+  // Mode label abbreviation inside circle
+  const modeAbbr={
+    'Full Circle':'FC','Top Side':'T½','Bottom Side':'B½',
+    'Top Left Quarter':'TL¼','Top Right Quarter':'TR¼','Bottom Left Quarter':'BL¼','Bottom Right Quarter':'BR¼',
+    'Top Left Eighth':'TL⅛','Top Right Eighth':'TR⅛','Upper Right Eighth':'UR⅛','Lower Right Eighth':'LR⅛',
+    'Bottom Right Eighth':'BR⅛','Bottom Left Eighth':'BL⅛','Lower Left Eighth':'LL⅛','Upper Left Eighth':'UL⅛'
+  }[mode]||'';
+  const labelSize=size*0.14;
+
   let armLine="";
   if(active){
     const angle=(rot+(pct/100)*arc*360)*(Math.PI/180);
@@ -232,8 +290,10 @@ function drawCircle(id,pct,mode,size,active,warn){
   const fillArc=active?`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${fillC}" stroke-width="${sw}" stroke-dasharray="${filledArc} ${circ}" stroke-linecap="round" transform="rotate(${rot} ${cx} ${cy})"/>`:"";
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${trackC}" stroke-width="${sw}"/>
+    ${divLines}
     ${remArc}${fillArc}${armLine}
     <circle cx="${cx}" cy="${cy}" r="${size*0.06}" fill="${dotC}"/>
+    ${mode!=='Full Circle'?`<text x="${cx}" y="${cy+size*0.05}" text-anchor="middle" fill="#6b7280" font-size="${labelSize}" font-family="Arial">${modeAbbr}</text>`:''}
   </svg>`;
 }
 
@@ -251,7 +311,7 @@ function showPage(pg){
   document.getElementById('backBtn').style.display=(!isHome&&pg!=='planner'&&pg!=='records'&&pg!=='tables')?'':'none';
   document.getElementById('pageTitle').style.fontSize=(isHome?'22':'18')+'px';
   document.getElementById('dateDisplay').style.display=isHome?'':'none';
-  const titles={dashboard:'Waka Waka',detail:state.selPivot||'',records:'Records',tables:'Speed Tables',planner:'Weekly Planner',history:'History'};
+  const titles={dashboard:'Waka Waka',detail:state.selPivot||'',records:'Records',tables:'Speed Tables',planner:'Weekly Planner',history:'History',calendar:'Calendar'};
   document.getElementById('pageTitle').textContent=titles[pg]||pg;
   document.getElementById('pageSubtitle').style.display=isHome?'':'none';
   render(pg);
@@ -269,6 +329,7 @@ function render(pg){
   else if(pg==='tables')renderTables();
   else if(pg==='planner')renderPlanner();
   else if(pg==='history')renderHistory();
+  else if(pg==='calendar')renderCalendar();
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────
@@ -280,23 +341,57 @@ function renderDashboard(){
   const todayDay=DAYS[todayIdx===0?6:todayIdx-1];
   const todayTasks=state.schedule.filter(s=>!s.done&&s.day===todayDay);
 
+  function sColor(pivot,pr){
+    if(!pivot.active)return'#6b7280';
+    const pct=pr?pr.pct:0;
+    if(pct>=95)return'#facc15';
+    return'#4ade80';
+  }
+  function sLabel(pivot,pr){
+    if(!pivot.active)return'Off';
+    const pct=pr?pr.pct:0;
+    if(pct>=100)return'Done ✓';
+    if(pct>=95)return'Near Finish';
+    return'Running';
+  }
+
   let pivotCards=state.pivots.map(pivot=>{
     const pr=calcProg(pivot);
     const pct=pr?pr.pct:0;
-    const done=pct>=100;
     const ha=HECTARES[pivot.id]||0;
+    const dap=getDap(pivot.id);
     const lockout=getSprayLockout(pivot.id);
     const fertPend=getFertWarn(pivot.id);
-    const borderC=lockout?"#7f1d1d":fertPend?"#854d0e":pivot.active?(done?"#facc15":"#2d5a3d"):"#1a2e22";
-    const badge=lockout?`<div class="badge" style="background:#7f1d1d;color:#f87171;">🔒</div>`:
-                fertPend?`<div class="badge" style="background:#854d0e;color:#facc15;">💧</div>`:"";
-    const statusTxt=pivot.active?(done?`<div style="font-size:10px;color:#facc15;">✓ Done</div>`:`<div style="font-size:10px;color:#4ade80;">${pct.toFixed(0)}%</div>`):`<div style="font-size:10px;color:#6b7280;">Idle</div>`;
-    return `<div class="pivot-card" style="border-color:${borderC}" onclick="openPivot('${pivot.id}')">
-      ${badge}
-      ${drawCircle(pivot.id,pct,pivot.mode,64,pivot.active,!!lockout)}
-      <div style="font-size:13px;font-weight:700;color:#e5e7eb;margin-top:4px;">${pivot.id}</div>
-      <div style="font-size:11px;font-weight:600;color:#60a5fa;">${ha} ha</div>
-      ${statusTxt}
+    const sc=sColor(pivot,pr);
+    const sl=sLabel(pivot,pr);
+    const mmApp=pr?(pr.mmApplied*pct/100).toFixed(1):'0.0';
+    const finishStr=(pr&&pct<100)?fmtTime(pr.finish):'—';
+    const badge=lockout?'<span style="background:#7f1d1d;color:#f87171;font-size:9px;border-radius:4px;padding:1px 5px;font-weight:700;">🔒</span>':
+                fertPend?'<span style="background:#854d0e;color:#facc15;font-size:9px;border-radius:4px;padding:1px 5px;font-weight:700;">💧</span>':'';
+    const borderC=lockout?'#7f1d1d':fertPend?'#854d0e':pivot.active?(pct>=95?'#854d0e':'#2d5a3d'):'#1e3a2f';
+    return`<div onclick="openPivot('${pivot.id}')" style="background:#0f2318;border:1px solid ${borderC};border-radius:12px;padding:10px;cursor:pointer;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+        <div>
+          <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+            <span style="font-size:15px;font-weight:900;color:#e5e7eb;">${pivot.id}</span>
+            <span style="width:7px;height:7px;border-radius:50%;background:${sc};display:inline-block;flex-shrink:0;"></span>
+            ${badge}
+          </div>
+          <div style="font-size:9px;color:#6b7280;">${ha}ha · DAP${dap!==null?dap:'?'}</div>
+          <div style="font-size:9px;color:${sc};font-weight:600;">${sl}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:20px;font-weight:900;color:${sc};line-height:1;">${pct.toFixed(0)}%</div>
+          <div style="font-size:8px;color:#6b7280;">Complete</div>
+          ${pivot.active?`<div style="font-size:9px;color:#9ca3af;">${pivot.speed}%spd</div>`:''}
+        </div>
+      </div>
+      ${drawCircle(pivot.id,pct,pivot.mode,52,pivot.active,!!lockout)}
+      ${pivot.active?`
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-top:5px;">
+        <div style="font-size:9px;color:#6b7280;">Finish:<span style="color:#e5e7eb;"> ${finishStr}</span></div>
+        <div style="font-size:9px;color:#6b7280;">mm:<span style="color:#4ade80;"> ${mmApp}</span></div>
+      </div>`:''}
     </div>`;
   }).join('');
 
@@ -311,15 +406,31 @@ function renderDashboard(){
   }
 
   document.getElementById('pg-dashboard').innerHTML=`
-    <div class="stat-grid">
-      <div class="stat-card"><div class="stat-val" style="color:#4ade80;">${active.length}</div><div class="stat-lbl">Active Pivots</div></div>
-      <div class="stat-card"><div class="stat-val" style="color:#facc15;">${completed.length}</div><div class="stat-lbl">Completed</div></div>
-      <div class="stat-card"><div class="stat-val" style="color:#60a5fa;">${TOTAL_HA} ha</div><div class="stat-lbl">Farm Area</div></div>
-      <div class="stat-card" onclick="showPage('planner')" style="cursor:pointer;"><div class="stat-val" style="color:#fb923c;">${todayTasks.length}</div><div class="stat-lbl">Today's Tasks</div></div>
+    <!-- Farm header bar -->
+    <div style="background:#0a1a10;border:1px solid #1e3a2f;border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:900;color:#4ade80;letter-spacing:1px;margin-bottom:8px;">🌿 MULLER FARM — WAKA WAKA</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;">
+        <div style="text-align:center;">
+          <div style="font-size:18px;font-weight:800;color:#4ade80;">${active.length}</div>
+          <div style="font-size:9px;color:#6b7280;text-transform:uppercase;">Running</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:18px;font-weight:800;color:#60a5fa;">${TOTAL_HA}</div>
+          <div style="font-size:9px;color:#6b7280;text-transform:uppercase;">Total ha</div>
+        </div>
+        <div style="text-align:center;">
+          <div style="font-size:18px;font-weight:800;color:#facc15;">${activeHa}</div>
+          <div style="font-size:9px;color:#6b7280;text-transform:uppercase;">Active ha</div>
+        </div>
+        <div style="text-align:center;cursor:pointer;" onclick="showPage('planner')">
+          <div style="font-size:18px;font-weight:800;color:#fb923c;">${todayTasks.length}</div>
+          <div style="font-size:9px;color:#6b7280;text-transform:uppercase;">Tasks</div>
+        </div>
+      </div>
     </div>
     ${todayBanner}
     <div style="font-size:11px;color:#4ade80;text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;">All Pivots</div>
-    <div class="pivot-grid">${pivotCards}</div>`;
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${pivotCards}</div>`;
 }
 
 // ─── PIVOT DETAIL ─────────────────────────────────────────────
@@ -331,13 +442,44 @@ function renderDetail(){
   const lockout=getSprayLockout(pivot.id);
   const fertPend=getFertWarn(pivot.id);
 
-  const tabs=['irrigation','fertilizer','chemical','planting'].map(t=>`<button class="tab${state.detailTab===t?' active':''}" onclick="setDetailTab('${t}')">${t==='planting'?'🌱 Plant':t}</button>`).join('');
+  const tabDefs=[['irrigation','💧 Irrig'],['irrigHistory','📈 Irrig Hist'],['fertilizer','🌾 Fert'],['chemical','🧪 Chem'],['program','📋 Program'],['planting','🌱 Plant']];
+  const tabs=tabDefs.map(([t,lbl])=>`<button onclick="setDetailTab('${t}')" style="flex:0 0 auto;padding:8px 14px;border-radius:8px;border:none;cursor:pointer;font-size:11px;font-weight:600;white-space:nowrap;background:${state.detailTab===t?'#4ade80':'#0a1a10'};color:${state.detailTab===t?'#070f09':'#6b7280'};">${lbl}</button>`).join('');
 
   let lockoutBanner=lockout?`<div style="background:#1a0a0a;border:1px solid #7f1d1d;border-radius:10px;padding:10px 14px;margin-bottom:12px;"><div style="font-size:13px;font-weight:700;color:#f87171;">🔒 Spray Lockout: ${lockout.hoursLeft}h remaining</div><div style="font-size:11px;color:#9ca3af;margin-top:2px;">You can still start irrigation if needed</div></div>`:'';
   let fertBanner=(!lockout&&fertPend)?`<div style="background:#1a0f00;border:1px solid #854d0e;border-radius:10px;padding:10px 14px;margin-bottom:12px;"><div style="font-size:13px;font-weight:700;color:#facc15;">💧 Fertilizer needs irrigation</div><div style="font-size:11px;color:#9ca3af;margin-top:2px;">${fertPend.product} — irrigate 8–10mm on ${fertPend.side}</div></div>`:'';
 
   let tabContent='';
-  if(state.detailTab==='irrigation'){
+  if(state.detailTab==='irrigHistory'){
+    const hist=(state.irrigHistory[pivot.id]||[]);
+    // Group by season
+    const seasons=[...new Set(hist.map(h=>h.season))];
+    const totalRuns=hist.length;
+    const totalMm=hist.reduce((s,h)=>s+parseFloat(h.mmApplied||0),0).toFixed(1);
+    const totalM3=hist.reduce((s,h)=>s+parseFloat(h.m3||0),0).toFixed(0);
+    const seasonGroups=seasons.map(season=>{
+      const runs=hist.filter(h=>h.season===season);
+      const rows=runs.map(h=>`<div class="card" style="margin-bottom:6px;">
+        <div style="display:flex;justify-content:space-between;">
+          <div style="font-size:12px;font-weight:700;color:#4ade80;">${new Date(h.startTime||h.stopTime).toLocaleDateString('en-ZA',{day:'2-digit',month:'short'})}</div>
+          <div style="font-size:11px;color:#6b7280;">${h.mmApplied} mm · ${h.m3} m³</div>
+        </div>
+        <div style="font-size:11px;color:#9ca3af;">${h.mode} · ${h.speed}% · ${h.pctComplete}% complete</div>
+        <div style="font-size:10px;color:#6b7280;">${h.startTime?new Date(h.startTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''} → ${h.stopTime?new Date(h.stopTime).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}):''}</div>
+      </div>`).join('');
+      const sTotal=runs.reduce((s,h)=>s+parseFloat(h.mmApplied||0),0).toFixed(1);
+      return`<div style="margin-bottom:12px;">
+        <div style="font-size:11px;color:#a78bfa;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">${season} — ${runs.length} runs · ${sTotal} mm total</div>
+        ${rows}
+      </div>`;
+    }).join('');
+    tabContent=`
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+        <div style="background:#0d2018;border-radius:10px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#4ade80;">${totalRuns}</div><div style="font-size:10px;color:#9ca3af;">Total Runs</div></div>
+        <div style="background:#0a1a10;border-radius:10px;padding:10px;text-align:center;"><div style="font-size:16px;font-weight:800;color:#60a5fa;">${totalMm}</div><div style="font-size:10px;color:#9ca3af;">mm Total</div></div>
+        <div style="background:#0a1a10;border-radius:10px;padding:10px;text-align:center;"><div style="font-size:16px;font-weight:800;color:#a78bfa;">${totalM3}</div><div style="font-size:10px;color:#9ca3af;">m³ Total</div></div>
+      </div>
+      ${hist.length?seasonGroups:'<div style="color:#6b7280;text-align:center;padding:24px;">No irrigation history yet.<br/><span style="font-size:12px;">Runs are logged when you stop irrigation.</span></div>'}`;
+  } else if(state.detailTab==='irrigation'){
     let stats='';
     if(pivot.active&&pr){
       const mmNow=(pr.mmApplied*pr.pct/100).toFixed(1);
@@ -387,6 +529,45 @@ function renderDetail(){
     tabContent=`<button class="btn btn-blue" onclick="openChemModal()">+ Add Chemical Record</button>${rows}`;
   }
 
+  // Program tab
+  if(state.detailTab==='program'){
+    const allTasks=state.schedule.filter(s=>s.pivot===pivot.id).sort((a,b)=>DAYS.indexOf(a.day)-DAYS.indexOf(b.day));
+    const upcoming=allTasks.filter(s=>!s.done);
+    const completed=allTasks.filter(s=>s.done);
+    const sprayCount=allTasks.filter(t=>t.type==='spray').length;
+    const spreadCount=allTasks.filter(t=>t.type==='spread').length;
+    const taskCard=(t)=>`<div class="card" style="border-left:3px solid ${t.type==='spray'?'#60a5fa':'#facc15'};opacity:${t.done?0.5:1};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+            <span style="font-size:13px;">${t.type==='spray'?'🧪':'🌱'}</span>
+            <span style="font-weight:700;color:${t.type==='spray'?'#60a5fa':'#facc15'};">${t.day}</span>
+            <span style="font-size:10px;color:#6b7280;">${t.side}</span>
+            ${t.done?'<span style="font-size:10px;color:#4ade80;font-weight:700;">✓</span>':''}
+          </div>
+          <div style="font-size:12px;color:#e5e7eb;">${t.product}</div>
+          ${t.note?`<div style="font-size:11px;color:#9ca3af;margin-top:2px;">📝 ${t.note}</div>`:''}
+          ${t.type==='spread'&&!t.done?`<div style="font-size:10px;color:#fb923c;margin-top:2px;">💧 Irrigate 8–10mm on ${t.side} after</div>`:''}
+          ${t.type==='spray'&&!t.done?`<div style="font-size:10px;color:#f87171;margin-top:2px;">🔒 24hr lockout after</div>`:''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
+          <button onclick="toggleSchedDone('${t.id}');renderDetail();" style="background:${t.done?'#2d5a3d':'#0a1a10'};border:1px solid ${t.done?'#4ade80':'#1e3a2f'};color:${t.done?'#4ade80':'#6b7280'};border-radius:8px;padding:5px 10px;font-size:11px;font-weight:600;">${t.done?'✓':'Done'}</button>
+          <button onclick="openSchedModal('${t.id}')" style="background:#0a1a10;border:1px solid #1e3a2f;color:#a78bfa;border-radius:8px;padding:4px 8px;font-size:11px;">✏️</button>
+        </div>
+      </div>
+    </div>`;
+    tabContent=`
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+        <div style="background:#1e3a5f;border-radius:10px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#60a5fa;">${sprayCount}</div><div style="font-size:10px;color:#9ca3af;">Sprays</div></div>
+        <div style="background:#2d2000;border-radius:10px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#facc15;">${spreadCount}</div><div style="font-size:10px;color:#9ca3af;">Spreads</div></div>
+        <div style="background:#0d2018;border-radius:10px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#4ade80;">${completed.length}</div><div style="font-size:10px;color:#9ca3af;">Done</div></div>
+      </div>
+      <div style="font-size:11px;color:#4ade80;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Upcoming (${upcoming.length})</div>
+      ${upcoming.length?upcoming.map(t=>taskCard(t)).join(''):`<div style="color:#6b7280;text-align:center;padding:16px;">No upcoming tasks scheduled for ${pivot.id}</div>`}
+      ${completed.length?`<div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin:12px 0 6px;">Completed (${completed.length})</div>${completed.map(t=>taskCard(t)).join('')}`:''}
+      <button class="btn btn-purple" style="margin-top:8px;" onclick="openAddSchedForPivot('${pivot.id}')">+ Add Task for ${pivot.id}</button>`;
+  }
+
   // Planting tab
   if(state.detailTab==='planting'){
     const dap=getDap(pivot.id);
@@ -430,7 +611,7 @@ function renderDetail(){
       </div>
     </div>
     ${lockoutBanner}${fertBanner}
-    <div class="tabs">${tabs}</div>
+    <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:4px;-webkit-overflow-scrolling:touch;">${tabs}</div>
     ${tabContent}`;
 }
 
@@ -453,17 +634,18 @@ function renderRecords(){
     </div>`).join('');
     content=`<button class="btn btn-blue" onclick="openChemGModal()">+ Add Chemical Record</button>${rows||'<div style="color:#6b7280;text-align:center;padding:24px;">No records yet</div>'}`;
   }
-  document.getElementById('pg-records').innerHTML=`<div class="tabs">${tabs}</div>${content}`;
+  document.getElementById('pg-records').innerHTML=`<div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:16px;padding-bottom:4px;-webkit-overflow-scrolling:touch;">${tabs}</div>${content}`;
 }
 
 // ─── SPEED TABLES ─────────────────────────────────────────────
 function renderTables(){
   const pills=PIVOT_NAMES.map(p=>`<button class="pill${state.tblPivot===p?' active':''}" onclick="setTblPivot('${p}')">${p}</button>`).join('');
   const tbl=SPEED_TABLES[state.tblPivot];
-  const rows=SPEED_OPTS.map((s,i)=>{const d=tbl[s];return`<div class="speed-row" style="background:${i%2===0?'#0f2318':'#0d1f14'};">
+  const rows=SPEED_OPTS.map((s,i)=>{const d=tbl[s];return`<div class="speed-row" style="background:${i%2===0?'#0f2318':'#0d1f14'};cursor:pointer;" onclick="openStartFromTable('${state.tblPivot}',${s})">
     <div style="color:#e5e7eb;font-weight:${s===100?700:400};">${s}%</div>
     <div style="color:#60a5fa;">${d.mm}</div>
     <div style="color:#9ca3af;">${d.hrs}</div>
+    <div style="color:#4ade80;font-size:10px;">▶</div>
   </div>`;}).join('');
   document.getElementById('pg-tables').innerHTML=`
     <div class="scroll-x"><div class="scroll-x-inner">${pills}</div></div>
@@ -562,8 +744,29 @@ function setPlanTab(t){state.planTab=t;renderPlanner();}
 
 function stopPivot(id){
   const p=state.pivots.find(x=>x.id===id);
-  if(p){const pr=calcProg(p);logHistory(id,'Irrigation Stopped',`${p.mode} · ${p.speed}% · ${pr?pr.pct.toFixed(1)+'% complete':'stopped'}`);}
+  if(p){
+    const pr=calcProg(p);
+    logHistory(id,'Irrigation Stopped',`${p.mode} · ${p.speed}% · ${pr?pr.pct.toFixed(1)+'% complete':'stopped'}`);
+    // Save to irrigation history
+    if(!state.irrigHistory[id])state.irrigHistory[id]=[];
+    const ha=HECTARES[id]||0;
+    const mmApp=pr?(pr.mmApplied*pr.pct/100).toFixed(1):0;
+    const m3=pr?((pr.mmApplied*pr.pct/100)*ha*10).toFixed(0):0;
+    const now=new Date();
+    const month=now.getMonth();
+    const season=month>=3&&month<=8?'Autumn/Winter':'Spring/Summer';
+    state.irrigHistory[id].unshift({
+      id:'ih'+Date.now(),
+      startTime:p.startTime,
+      stopTime:new Date().toISOString(),
+      mode:p.mode,speed:p.speed,
+      mmApplied:mmApp,m3,
+      pctComplete:pr?pr.pct.toFixed(1):0,
+      season
+    });
+  }
   state.pivots=state.pivots.map(p=>p.id===id?{...p,active:false,startTime:null}:p);
+  saveState();
   renderDetail();renderDashboard();
 }
 
@@ -587,6 +790,14 @@ function openStartModal(pivotId){
   showStartModal();
 }
 
+function openStartFromTable(pivotId, speed){
+  const now=new Date();
+  const pad=n=>String(n).padStart(2,'0');
+  const defaultTime=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  state.pendingStart={pivotId,mode:'Full Circle',speed,startTime:defaultTime};
+  showStartModal();
+}
+
 function mergeDT(){
   const d=document.getElementById('sm_date');
   const t=document.getElementById('sm_time');
@@ -602,14 +813,14 @@ function showStartModal(){
     <div style="font-size:11px;color:#4ade80;margin-bottom:6px;">AT ${f.speed}% SPEED</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
       <div><div style="color:#e5e7eb;font-weight:700;">${s.mm} mm</div><div style="font-size:10px;color:#6b7280;">per revolution</div></div>
-      <div><div style="color:#e5e7eb;font-weight:700;">${f.mode==='Full Circle'?s.hrs:(s.hrs/2).toFixed(1)} hrs</div><div style="font-size:10px;color:#6b7280;">total runtime</div></div>
+      <div><div style="color:#e5e7eb;font-weight:700;">${(s.hrs*({'Full Circle':1,'Top Side':0.5,'Bottom Side':0.5,'Top Left Quarter':0.25,'Top Right Quarter':0.25,'Bottom Left Quarter':0.25,'Bottom Right Quarter':0.25,'Top Left Eighth':0.125,'Top Right Eighth':0.125,'Upper Right Eighth':0.125,'Lower Right Eighth':0.125,'Bottom Right Eighth':0.125,'Bottom Left Eighth':0.125,'Lower Left Eighth':0.125,'Upper Left Eighth':0.125}[f.mode]||1)).toFixed(1)} hrs</div><div style="font-size:10px;color:#6b7280;">total runtime</div></div>
     </div>
   </div>`:'';
   const lockoutWarn=lockout?`<div class="spray-warn-inline"><div style="font-size:12px;color:#f87171;font-weight:700;">⚠️ Spray lockout: ${lockout.hoursLeft}h remaining</div></div>`:'';
   const fertWarn=fertPend?`<div class="warn-box-inline"><div style="font-size:12px;color:#facc15;font-weight:700;">⚠️ Fertilizer not yet irrigated — check mode matches spread side (${fertPend.side})</div></div>`:'';
   const pivotOpts=PIVOT_NAMES.map(p=>`<option value="${p}"${p===f.pivotId?' selected':''}>${p}</option>`).join('');
   const speedOpts=SPEED_OPTS.map(s=>`<option value="${s}"${s===f.speed?' selected':''}>${s}%</option>`).join('');
-  const modeOpts=['Full Circle','Top Side','Bottom Side'].map(m=>`<option value="${m}"${m===f.mode?' selected':''}>${m}</option>`).join('');
+  const modeOpts=['Full Circle','Top Side','Bottom Side','Top Left Quarter','Top Right Quarter','Bottom Left Quarter','Bottom Right Quarter','Top Left Eighth','Top Right Eighth','Upper Right Eighth','Lower Right Eighth','Bottom Right Eighth','Bottom Left Eighth','Lower Left Eighth','Upper Left Eighth'].map(m=>`<option value="${m}"${m===f.mode?' selected':''}>${m}</option>`).join('');
   document.getElementById('modalContent').innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
       <div style="font-size:18px;font-weight:800;color:#e5e7eb;">Start ${f.pivotId}</div>
@@ -666,7 +877,7 @@ function openFertGModal(){openFertForm('P0',true);}
 function openFertForm(pivotId,isGlobal){
   const today=new Date().toISOString().slice(0,10);
   const pivotOpts=PIVOT_NAMES.map(p=>`<option value="${p}"${p===pivotId?' selected':''}>${p}</option>`).join('');
-  const sideOpts=['Full Circle','Top Side','Bottom Side','Top Left Quarter','Top Right Quarter','Bottom Left Quarter','Bottom Right Quarter'].map(s=>`<option value="${s}">${s}</option>`).join('');
+  const sideOpts=['Full Circle','Top Side','Bottom Side','Top Left Quarter','Top Right Quarter','Bottom Left Quarter','Bottom Right Quarter','Top Left Eighth','Top Right Eighth','Upper Right Eighth','Lower Right Eighth','Bottom Right Eighth','Bottom Left Eighth','Lower Left Eighth','Upper Left Eighth'].map(s=>`<option value="${s}">${s}</option>`).join('');
   const pivotSel=isGlobal?`<div class="inp-label">Pivot</div><select class="inp-field" id="f_pivot" onchange="updateFertCalc()">${pivotOpts}</select>`:`<input type="hidden" id="f_pivot" value="${pivotId}"/>`;
   document.getElementById('modalContent').innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
@@ -716,6 +927,7 @@ function saveFert(){
     needsIrrigation:true,irrigated:false,spreadAt:new Date().toISOString()
   });
   closeModal();
+  saveState();
   if(state.currentPage==='detail')renderDetail();
   else renderRecords();
   renderDashboard();
@@ -762,21 +974,55 @@ function saveChem(){
     sprayTime:new Date().toISOString()
   });
   closeModal();
+  saveState();
   if(state.currentPage==='detail')renderDetail();
   else renderRecords();
   renderDashboard();
 }
 
-// ─── SCHEDULE MODAL (add + edit) ──────────────────────────────
+// ─── SCHEDULE MODAL (add + edit + split) ─────────────────────
 function openSchedModal(existingId){
   const ex = existingId ? state.schedule.find(s=>s.id===existingId) : null;
   const pivotOpts=PIVOT_NAMES.map(p=>`<option value="${p}"${ex&&ex.pivot===p?' selected':''}>${p}</option>`).join('');
   const dayOpts=DAYS.map(d=>`<option value="${d}"${ex&&ex.day===d?' selected':''}>${d}</option>`).join('');
-  const sideOpts=['Full Circle','Top Side','Bottom Side','Top Left Quarter','Top Right Quarter','Bottom Left Quarter','Bottom Right Quarter'].map(s=>`<option value="${s}"${ex&&ex.side===s?' selected':''}>${s}</option>`).join('');
+  const sideOpts=['Full Circle','Top Side','Bottom Side','Top Left Quarter','Top Right Quarter','Bottom Left Quarter','Bottom Right Quarter','Top Left Eighth','Top Right Eighth','Upper Right Eighth','Lower Right Eighth','Bottom Right Eighth','Bottom Left Eighth','Lower Left Eighth','Upper Left Eighth'].map(s=>`<option value="${s}"${ex&&ex.side===s?' selected':''}>${s}</option>`).join('');
   const isEdit = !!ex;
+
+  // Split pairs map
+  const splitPairs={
+    'Top Side':'Bottom Side','Bottom Side':'Top Side',
+    'Top Left Quarter':'Top Right Quarter','Top Right Quarter':'Bottom Right Quarter',
+    'Bottom Right Quarter':'Bottom Left Quarter','Bottom Left Quarter':'Top Left Quarter',
+    'Full Circle':'Top Side',
+    'Top Left Eighth':'Top Right Eighth','Top Right Eighth':'Upper Right Eighth',
+    'Upper Right Eighth':'Lower Right Eighth','Lower Right Eighth':'Bottom Right Eighth',
+    'Bottom Right Eighth':'Bottom Left Eighth','Bottom Left Eighth':'Lower Left Eighth',
+    'Lower Left Eighth':'Upper Left Eighth','Upper Left Eighth':'Top Left Eighth'
+  };
+  const splitBtn=isEdit?`
+    <div style="background:#0a1a10;border:1px solid #1e3a2f;border-radius:10px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:11px;color:#a78bfa;font-weight:700;margin-bottom:8px;">✂️ SPLIT — Schedule other half separately</div>
+      <div style="font-size:11px;color:#9ca3af;margin-bottom:8px;">This creates a second task for the remaining side on a different day.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <div>
+          <div class="inp-label">Other Side</div>
+          <select class="inp-field" id="split_side" style="margin-bottom:0;">
+            ${['Top Side','Bottom Side','Top Left Quarter','Top Right Quarter','Bottom Left Quarter','Bottom Right Quarter','Top Left Eighth','Top Right Eighth','Upper Right Eighth','Lower Right Eighth','Bottom Right Eighth','Bottom Left Eighth','Lower Left Eighth','Upper Left Eighth'].map(s=>`<option value="${s}"${s===splitPairs[ex.side]?' selected':''}>${s}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <div class="inp-label">Schedule for Day</div>
+          <select class="inp-field" id="split_day" style="margin-bottom:0;">
+            ${DAYS.map(d=>`<option value="${d}">${d}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <button onclick="splitTask('${existingId}')" style="width:100%;background:#a78bfa;color:#070f09;border:none;border-radius:8px;padding:10px;font-weight:800;font-size:13px;">✂️ Split & Schedule Other Half</button>
+    </div>`:'';
+
   document.getElementById('modalContent').innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <div style="font-size:18px;font-weight:800;color:#e5e7eb;">${isEdit?'Edit Entry':'Add Schedule Entry'}</div>
+      <div style="font-size:18px;font-weight:800;color:#e5e7eb;">${isEdit?'Edit Task':'Add Schedule Entry'}</div>
       <button onclick="closeModal()" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;font-size:16px;">✕</button>
     </div>
     <div class="inp-label">Pivot</div><select class="inp-field" id="sc_pivot">${pivotOpts}</select>
@@ -788,13 +1034,53 @@ function openSchedModal(existingId){
     </select>
     <div class="inp-label">Product / Description</div>
     <input type="text" class="inp-field" id="sc_product" value="${ex?ex.product:''}" placeholder="Product name"/>
-    <div class="inp-label">Side</div><select class="inp-field" id="sc_side">${sideOpts}</select>
-    ${isEdit?`<button class="btn" style="background:#7f1d1d;color:#fff;margin-bottom:8px;" onclick="deleteSchedItem('${existingId}');closeModal();">🗑 Delete Entry</button>`:''}
+    <div class="inp-label">Side</div>
+    <select class="inp-field" id="sc_side">${sideOpts}</select>
+    <div class="inp-label">Note</div>
+    <input type="text" class="inp-field" id="sc_note" value="${ex&&ex.note?ex.note:''}" placeholder="Optional note"/>
+    ${splitBtn}
+    ${isEdit?`<button class="btn" style="background:#7f1d1d;color:#fff;margin-bottom:8px;" onclick="deleteSchedItem('${existingId}');closeModal();">🗑 Delete</button>`:''}
     <button class="btn btn-purple" onclick="saveSched('${existingId||''}')">${isEdit?'Save Changes':'Add to Schedule'}</button>`;
   document.getElementById('mainModal').classList.add('open');
 }
 
 function editSchedItem(id){ openSchedModal(id); }
+
+function splitTask(existingId){
+  const orig=state.schedule.find(s=>s.id===existingId);
+  if(!orig)return;
+  const otherSide=document.getElementById('split_side').value;
+  const otherDay=document.getElementById('split_day').value;
+  const newTask={
+    id:'s'+Date.now(),
+    pivot:orig.pivot,
+    day:otherDay,
+    type:orig.type,
+    product:orig.product,
+    side:otherSide,
+    note:`Split from ${orig.side} task`,
+    done:false,irrigated:false
+  };
+  // Check conflicts
+  const lockout=getSprayLockout(orig.pivot);
+  const fertPend=getFertWarn(orig.pivot);
+  const hasConflict=(orig.type==='spray'&&lockout)||(orig.type==='spread'&&fertPend);
+  if(hasConflict){
+    closeModal();
+    showWarn('⚠️ Conflict on Split Task',
+      `${orig.pivot} has ${lockout?'a spray lockout active':'fertilizer pending irrigation'}.
+
+Add the ${otherSide} task for ${otherDay} anyway?`,
+      ()=>{state.schedule.push(newTask);renderPlanner();renderCalendar();renderDashboard();}
+    );
+  } else {
+    state.schedule.push(newTask);
+    closeModal();
+    saveState();
+    renderPlanner();renderCalendar();renderDashboard();
+    alert(`✅ Split task added!\n${orig.pivot} ${otherSide} scheduled for ${otherDay}`);
+  }
+}
 
 function saveSched(existingId){
   const entry = {
@@ -803,6 +1089,7 @@ function saveSched(existingId){
     type:document.getElementById('sc_type').value,
     product:document.getElementById('sc_product').value||'Unknown',
     side:document.getElementById('sc_side').value,
+    note:document.getElementById('sc_note')?document.getElementById('sc_note').value:'',
     done:false,irrigated:false
   };
   if(existingId){
@@ -810,48 +1097,158 @@ function saveSched(existingId){
   } else {
     state.schedule.push({id:'s'+Date.now(),...entry});
   }
-  closeModal();renderPlanner();renderDashboard();
+  closeModal();
+  renderPlanner();
+  if(state.currentPage==='calendar')renderCalendar();
+  renderDashboard();
 }
 
 // ─── PRE-SCHEDULE IRRIGATION ──────────────────────────────────
 function openPreSchedIrrModal(pivotId){
-  const now=new Date();
+  // Show list of all scheduled irrigations for this pivot first
+  const existing=state.preScheduled.filter(s=>s.pivot===pivotId).sort((a,b)=>new Date(a.scheduledTime)-new Date(b.scheduledTime));
+  const now=Date.now();
+
+  const existCards=existing.length?existing.map(s=>{
+    const sd_data=sd(s.pivot,s.speed);
+    const totalHrs=sd_data?(sd_data.hrs*({'Full Circle':1,'Top Side':0.5,'Bottom Side':0.5,'Top Left Quarter':0.25,'Top Right Quarter':0.25,'Bottom Left Quarter':0.25,'Bottom Right Quarter':0.25,'Top Left Eighth':0.125,'Top Right Eighth':0.125,'Upper Right Eighth':0.125,'Lower Right Eighth':0.125,'Bottom Right Eighth':0.125,'Bottom Left Eighth':0.125,'Lower Left Eighth':0.125,'Upper Left Eighth':0.125}[s.mode]||1)):0;
+    const mmApp=sd_data?sd_data.mm*({'Full Circle':1,'Top Side':0.5,'Bottom Side':0.5,'Top Left Quarter':0.25,'Top Right Quarter':0.25,'Bottom Left Quarter':0.25,'Bottom Right Quarter':0.25,'Top Left Eighth':0.125,'Top Right Eighth':0.125,'Upper Right Eighth':0.125,'Lower Right Eighth':0.125,'Bottom Right Eighth':0.125,'Bottom Left Eighth':0.125,'Lower Left Eighth':0.125,'Upper Left Eighth':0.125}[s.mode]||1):0;
+    const ha=HECTARES[s.pivot]||0;
+    const t=new Date(s.scheduledTime).getTime();
+    const diff=t-now;
+    const isFuture=diff>0;
+    const mins=Math.abs(Math.round(diff/60000));
+    const timeUntil=isFuture?(mins<60?`in ${mins}min`:`in ${Math.floor(mins/60)}h ${mins%60}m`):'overdue';
+    return`<div onclick="openPreSchedDetail('${s.id}')" style="background:#0a1a10;border:1px solid #1e4a6f;border-radius:10px;padding:12px;margin-bottom:8px;cursor:pointer;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="flex:1;">
+          <div style="font-size:14px;font-weight:800;color:#60a5fa;">${new Date(s.scheduledTime).toLocaleString('en-ZA',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:2px;">${s.mode} · ${s.speed}%</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px;">
+            <div style="background:#070f09;border-radius:6px;padding:6px;text-align:center;">
+              <div style="font-size:13px;font-weight:700;color:#4ade80;">${mmApp.toFixed(1)}</div>
+              <div style="font-size:9px;color:#6b7280;">mm</div>
+            </div>
+            <div style="background:#070f09;border-radius:6px;padding:6px;text-align:center;">
+              <div style="font-size:13px;font-weight:700;color:#4ade80;">${totalHrs.toFixed(1)}</div>
+              <div style="font-size:9px;color:#6b7280;">hrs</div>
+            </div>
+            <div style="background:#070f09;border-radius:6px;padding:6px;text-align:center;">
+              <div style="font-size:13px;font-weight:700;color:#4ade80;">${(mmApp*ha*10).toFixed(0)}</div>
+              <div style="font-size:9px;color:#6b7280;">m³</div>
+            </div>
+          </div>
+          ${s.note?`<div style="font-size:11px;color:#6b7280;margin-top:4px;">📝 ${s.note}</div>`:''}
+        </div>
+        <div style="text-align:right;margin-left:8px;">
+          <div style="font-size:10px;color:${isFuture?'#4ade80':'#fb923c'};font-weight:700;">${timeUntil}</div>
+          <button onclick="event.stopPropagation();deletePreSched('${s.id}')" style="background:none;border:none;color:#6b7280;font-size:16px;cursor:pointer;margin-top:4px;">✕</button>
+        </div>
+      </div>
+    </div>`;
+  }).join(''):`<div style="background:#0a1a10;border:1px solid #1e3a2f;border-radius:10px;padding:16px;text-align:center;margin-bottom:12px;color:#6b7280;font-size:13px;">No scheduled irrigations for ${pivotId}</div>`;
+
   const pad=n=>String(n).padStart(2,'0');
-  const dt=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const nowDt=new Date();
+  const dt=`${nowDt.getFullYear()}-${pad(nowDt.getMonth()+1)}-${pad(nowDt.getDate())}T${pad(nowDt.getHours())}:${pad(nowDt.getMinutes())}`;
   const pivotOpts=PIVOT_NAMES.map(p=>`<option value="${p}"${p===pivotId?' selected':''}>${p}</option>`).join('');
   const speedOpts=SPEED_OPTS.map(s=>`<option value="${s}"${s===100?' selected':''}>${s}%</option>`).join('');
-  const modeOpts=['Full Circle','Top Side','Bottom Side','Top Left Quarter','Top Right Quarter','Bottom Left Quarter','Bottom Right Quarter'].map(m=>`<option value="${m}">${m}</option>`).join('');
-  // Show existing pre-scheduled for this pivot
-  const existing=state.preScheduled.filter(s=>s.pivot===pivotId);
-  const existRows=existing.length?`
-    <div style="font-size:11px;color:#60a5fa;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Scheduled</div>
-    ${existing.map(s=>`<div style="background:#0a1a10;border:1px solid #1e4a6f;border-radius:8px;padding:8px 12px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;">
-      <div>
-        <div style="font-size:12px;font-weight:700;color:#e5e7eb;">${new Date(s.scheduledTime).toLocaleString('en-ZA',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
-        <div style="font-size:11px;color:#6b7280;">${s.mode} · ${s.speed}% ${s.note?'· '+s.note:''}</div>
-      </div>
-      <button onclick="deletePreSched('${s.id}')" style="background:none;border:none;color:#6b7280;font-size:16px;cursor:pointer;">✕</button>
-    </div>`).join('')}`:'';
+  const modeOpts=['Full Circle','Top Side','Bottom Side','Top Left Quarter','Top Right Quarter','Bottom Left Quarter','Bottom Right Quarter','Top Left Eighth','Top Right Eighth','Upper Right Eighth','Lower Right Eighth','Bottom Right Eighth','Bottom Left Eighth','Lower Left Eighth','Upper Left Eighth'].map(m=>`<option value="${m}">${m}</option>`).join('');
+
   document.getElementById('modalContent').innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-      <div style="font-size:18px;font-weight:800;color:#e5e7eb;">⏰ Schedule Irrigation</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:18px;font-weight:800;color:#e5e7eb;">⏰ ${pivotId} Irrigations</div>
       <button onclick="closeModal()" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;font-size:16px;">✕</button>
     </div>
-    ${existRows}
-    <div style="font-size:11px;color:#60a5fa;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;margin-top:${existing.length?'12px':'0'};">Add New</div>
-    <div class="inp-label">Pivot</div><select class="inp-field" id="ps_pivot">${pivotOpts}</select>
-    <div class="inp-label">Scheduled Date (YYYY-MM-DD)</div>
-    <input type="text" class="inp-field" id="ps_date" value="${dt.slice(0,10)}" placeholder="2026-06-03" maxlength="10"/>
-    <div class="inp-label">Scheduled Time (HH:MM)</div>
-    <input type="text" class="inp-field" id="ps_time_only" value="${dt.slice(11,16)}" placeholder="06:00" maxlength="5"/>
-    <div class="inp-label">Speed %</div><select class="inp-field" id="ps_speed">${speedOpts}</select>
-    <div class="inp-label">Mode</div><select class="inp-field" id="ps_mode">${modeOpts}</select>
+    ${existCards}
+    <div style="border-top:1px solid #1e3a2f;padding-top:16px;margin-top:4px;">
+      <div style="font-size:13px;font-weight:700;color:#60a5fa;margin-bottom:12px;">+ Schedule New Irrigation</div>
+      <div class="inp-label">Pivot</div><select class="inp-field" id="ps_pivot" onchange="updatePreSchedInfo()">${pivotOpts}</select>
+      <div class="inp-label">Date (YYYY-MM-DD)</div>
+      <input type="text" class="inp-field" id="ps_date" value="${dt.slice(0,10)}" placeholder="2026-06-03" maxlength="10"/>
+      <div class="inp-label">Time (HH:MM)</div>
+      <input type="text" class="inp-field" id="ps_time_only" value="${dt.slice(11,16)}" placeholder="06:00" maxlength="5"/>
+      <div class="inp-label">Speed %</div><select class="inp-field" id="ps_speed" onchange="updatePreSchedInfo()">${speedOpts}</select>
+      <div class="inp-label">Mode</div><select class="inp-field" id="ps_mode" onchange="updatePreSchedInfo()">${modeOpts}</select>
+      <div id="ps_info_box" style="background:#0a1a10;border-radius:10px;padding:12px;margin-bottom:12px;">
+        <div style="font-size:11px;color:#4ade80;margin-bottom:6px;">AT 100% — FULL CIRCLE</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+          <div><div id="ps_mm" style="font-size:16px;font-weight:700;color:#e5e7eb;">—</div><div style="font-size:10px;color:#6b7280;">mm applied</div></div>
+          <div><div id="ps_hrs" style="font-size:16px;font-weight:700;color:#e5e7eb;">—</div><div style="font-size:10px;color:#6b7280;">hours</div></div>
+          <div><div id="ps_m3" style="font-size:16px;font-weight:700;color:#e5e7eb;">—</div><div style="font-size:10px;color:#6b7280;">m³ total</div></div>
+        </div>
+      </div>
     <div class="inp-label">Note (optional)</div><input type="text" class="inp-field" id="ps_note" placeholder="e.g. After fertilizer spread"/>
-    <div class="info-box" style="margin-bottom:12px;">
-      <div style="font-size:11px;color:#60a5fa;">⏰ App will alert you 1 hour before and when it's time to start</div>
-    </div>
-    <button class="btn btn-blue" onclick="savePreSched()">Save Scheduled Irrigation</button>`;
+      <div class="inp-label">Note (optional)</div>
+      <input type="text" class="inp-field" id="ps_note" placeholder="e.g. After fertilizer spread Top Side"/>
+      <div style="background:#0a1a10;border-radius:8px;padding:10px;margin-bottom:12px;">
+        <div style="font-size:11px;color:#60a5fa;">⏰ You will be alerted 1 hour before and at start time</div>
+      </div>
+      <button class="btn btn-blue" onclick="savePreSched()">Save Scheduled Irrigation</button>
+    </div>`;
   document.getElementById('mainModal').classList.add('open');
+  setTimeout(updatePreSchedInfo,50);
+}
+
+function updatePreSchedInfo(){
+  const pid=document.getElementById('ps_pivot')?document.getElementById('ps_pivot').value:'P0';
+  const spd=parseInt(document.getElementById('ps_speed')?document.getElementById('ps_speed').value:100);
+  const mode=document.getElementById('ps_mode')?document.getElementById('ps_mode').value:'Full Circle';
+  const modeMap={'Full Circle':1,'Top Side':0.5,'Bottom Side':0.5,
+    'Top Left Quarter':0.25,'Top Right Quarter':0.25,'Bottom Left Quarter':0.25,'Bottom Right Quarter':0.25,
+    'Top Left Eighth':0.125,'Top Right Eighth':0.125,'Upper Right Eighth':0.125,'Lower Right Eighth':0.125,
+    'Bottom Right Eighth':0.125,'Bottom Left Eighth':0.125,'Lower Left Eighth':0.125,'Upper Left Eighth':0.125};
+  const s=sd(pid,spd);
+  if(!s)return;
+  const frac=modeMap[mode]||1;
+  const mm=(s.mm*frac).toFixed(1);
+  const hrs=(s.hrs*frac).toFixed(1);
+  const ha=HECTARES[pid]||0;
+  const m3=(s.mm*frac*ha*10).toFixed(0);
+  const infoBox=document.getElementById('ps_info_box');
+  if(infoBox){
+    infoBox.querySelector('div').textContent=`AT ${spd}% — ${mode}`;
+  }
+  if(document.getElementById('ps_mm'))document.getElementById('ps_mm').textContent=mm+' mm';
+  if(document.getElementById('ps_hrs'))document.getElementById('ps_hrs').textContent=hrs+' hrs';
+  if(document.getElementById('ps_m3'))document.getElementById('ps_m3').textContent=m3+' m³';
+}
+
+function openPreSchedDetail(schedId){
+  const s=state.preScheduled.find(x=>x.id===schedId);
+  if(!s)return;
+  const sd_data=sd(s.pivot,s.speed);
+  const modeMap={'Full Circle':1,'Top Side':0.5,'Bottom Side':0.5,
+    'Top Left Quarter':0.25,'Top Right Quarter':0.25,'Bottom Left Quarter':0.25,'Bottom Right Quarter':0.25,
+    'Top Left Eighth':0.125,'Top Right Eighth':0.125,'Upper Right Eighth':0.125,'Lower Right Eighth':0.125,
+    'Bottom Right Eighth':0.125,'Bottom Left Eighth':0.125,'Lower Left Eighth':0.125,'Upper Left Eighth':0.125};
+  const frac=modeMap[s.mode]||1;
+  const mm=sd_data?(sd_data.mm*frac).toFixed(1):'—';
+  const hrs=sd_data?(sd_data.hrs*frac).toFixed(1):'—';
+  const ha=HECTARES[s.pivot]||0;
+  const m3=sd_data?((sd_data.mm*frac)*ha*10).toFixed(0):'—';
+  const finishTime=sd_data?new Date(new Date(s.scheduledTime).getTime()+(sd_data.hrs*frac*3600000)):null;
+  document.getElementById('modalContent').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:18px;font-weight:800;color:#e5e7eb;">⏰ ${s.pivot} Scheduled</div>
+      <button onclick="openPreSchedIrrModal('${s.pivot}')" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;font-size:13px;">← Back</button>
+    </div>
+    <div style="background:#0a1a10;border:1px solid #1e4a6f;border-radius:12px;padding:16px;margin-bottom:16px;">
+      <div style="font-size:16px;font-weight:800;color:#60a5fa;margin-bottom:4px;">${new Date(s.scheduledTime).toLocaleString('en-ZA',{weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
+      <div style="font-size:13px;color:#9ca3af;margin-bottom:12px;">${s.mode} · ${s.speed}% speed</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+        ${[['mm Applied',mm+' mm'],['Total Hours',hrs+' hrs'],['Total Water',m3+' m³'],['Est. Finish',finishTime?fmtTime(finishTime):'—'],['Area',ha+' ha'],['Pivot',s.pivot]].map(([l,v])=>`
+          <div style="background:#070f09;border-radius:8px;padding:10px;">
+            <div style="font-size:15px;font-weight:700;color:#4ade80;">${v}</div>
+            <div style="font-size:10px;color:#6b7280;text-transform:uppercase;">${l}</div>
+          </div>`).join('')}
+      </div>
+      ${s.note?`<div style="font-size:12px;color:#9ca3af;background:#070f09;border-radius:8px;padding:8px;">📝 ${s.note}</div>`:''}
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="deletePreSched('${s.id}')" style="flex:1;background:#7f1d1d;color:#fff;border:none;border-radius:10px;padding:12px;font-weight:700;font-size:13px;">🗑 Delete</button>
+      <button onclick="doStart({pivotId:'${s.pivot}',startTime:'${s.scheduledTime}',speed:${s.speed},mode:'${s.mode}'});closeModal();" style="flex:1;background:#4ade80;color:#070f09;border:none;border-radius:10px;padding:12px;font-weight:800;font-size:13px;">▶ Start Now</button>
+    </div>`;
 }
 
 function savePreSched(){
@@ -885,6 +1282,27 @@ function logHistory(pivot, action, detail){
     timestamp: new Date().toISOString(),
     pivot, action, detail
   });
+}
+
+function openAddSchedForPivot(pivotId){
+  const dayOpts=DAYS.map(d=>`<option value="${d}">${d}</option>`).join('');
+  const sideOpts=['Full Circle','Top Side','Bottom Side','Top Left Quarter','Top Right Quarter','Bottom Left Quarter','Bottom Right Quarter','Top Left Eighth','Top Right Eighth','Upper Right Eighth','Lower Right Eighth','Bottom Right Eighth','Bottom Left Eighth','Lower Left Eighth','Upper Left Eighth'].map(s=>`<option value="${s}">${s}</option>`).join('');
+  document.getElementById('modalContent').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="font-size:18px;font-weight:800;color:#e5e7eb;">Add Task — ${pivotId}</div>
+      <button onclick="closeModal()" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;font-size:16px;">✕</button>
+    </div>
+    <div class="inp-label">Day</div><select class="inp-field" id="sc_day">${dayOpts}</select>
+    <div class="inp-label">Type</div>
+    <select class="inp-field" id="sc_type"><option value="spray">Spray</option><option value="spread">Spread (Fertilizer)</option></select>
+    <div class="inp-label">Product / Description</div>
+    <input type="text" class="inp-field" id="sc_product" placeholder="Product name"/>
+    <div class="inp-label">Side</div><select class="inp-field" id="sc_side">${sideOpts}</select>
+    <div class="inp-label">Note (optional)</div>
+    <input type="text" class="inp-field" id="sc_note" placeholder="Optional note"/>
+    <input type="hidden" id="sc_pivot" value="${pivotId}"/>
+    <button class="btn btn-purple" onclick="saveSched('')">Add Task</button>`;
+  document.getElementById('mainModal').classList.add('open');
 }
 
 function openResetDapModal(pivotId){
@@ -928,6 +1346,64 @@ function confirmResetDap(pivotId){
 }
 
 // ─── HISTORY PAGE ─────────────────────────────────────────────
+function exportData(){
+  const exportObj={
+    version:2,
+    exportedAt:new Date().toISOString(),
+    pivots:state.pivots,
+    fertRecs:state.fertRecs,
+    chemRecs:state.chemRecs,
+    schedule:state.schedule,
+    dayNotes:state.dayNotes,
+    preScheduled:state.preScheduled,
+    plantingHistory:state.plantingHistory,
+    irrigHistory:state.irrigHistory,
+    historyLog:state.historyLog,
+    plantDates:PLANT_DATES
+  };
+  const blob=new Blob([JSON.stringify(exportObj,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='WakaWaka_backup_'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(){
+  const input=document.createElement('input');
+  input.type='file';
+  input.accept='.json';
+  input.onchange=e=>{
+    const file=e.target.files[0];
+    if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        if(d.version&&d.pivots){
+          if(d.pivots)state.pivots=d.pivots;
+          if(d.fertRecs)state.fertRecs=d.fertRecs;
+          if(d.chemRecs)state.chemRecs=d.chemRecs;
+          if(d.schedule)state.schedule=d.schedule;
+          if(d.dayNotes)state.dayNotes=d.dayNotes;
+          if(d.preScheduled)state.preScheduled=d.preScheduled;
+          if(d.plantingHistory)state.plantingHistory=d.plantingHistory;
+          if(d.irrigHistory)state.irrigHistory=d.irrigHistory;
+          if(d.historyLog)state.historyLog=d.historyLog;
+          if(d.plantDates)Object.assign(PLANT_DATES,d.plantDates);
+          saveState();
+          renderDashboard();
+          if(state.currentPage!=='dashboard')showPage(state.currentPage);
+          alert('✅ Data imported successfully!\n'+Object.keys(d).filter(k=>k!=='version'&&k!=='exportedAt').map(k=>`${k}: imported`).join('\n'));
+        }else{alert('❌ Invalid backup file');}
+      }catch(err){alert('❌ Could not read file: '+err.message);}
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
 function renderHistory(){
   const log = state.historyLog;
   const iconMap = {'New Crop':'🌱','Irrigation Started':'💧','Irrigation Stopped':'⏹','Fertilizer':'🌾','Chemical':'🧪','Pre-Scheduled':'⏰'};
@@ -960,7 +1436,8 @@ function renderHistory(){
     </div>`;
   }).join('');
 
-  document.getElementById('pg-history').innerHTML=`
+  const histExtra=`<div style="display:flex;gap:8px;margin-bottom:16px;"><button onclick="exportData()" style="flex:1;background:#0f2318;border:1px solid #1e3a2f;color:#4ade80;border-radius:10px;padding:10px;font-weight:700;font-size:12px;">📤 Export Data</button><button onclick="importData()" style="flex:1;background:#0f2318;border:1px solid #1e3a2f;color:#60a5fa;border-radius:10px;padding:10px;font-weight:700;font-size:12px;">📥 Import Data</button></div>`;
+  document.getElementById('pg-history').innerHTML=histExtra+`
     <div class="tabs" style="margin-bottom:16px;">
       <button class="tab${state.histTab==='log'?' active':''}" onclick="setHistTab('log')">Activity Log</button>
       <button class="tab${state.histTab==='planting'?' active':''}" onclick="setHistTab('planting')">Planting History</button>
@@ -968,6 +1445,231 @@ function renderHistory(){
     ${state.histTab==='log'?rows:plantRows||'<div style="color:#6b7280;text-align:center;padding:32px;">No planting history yet</div>'}`;
 }
 function setHistTab(t){state.histTab=t;renderHistory();}
+
+// ═══════════════════════════════════════════════════════════════
+// CALENDAR
+// ═══════════════════════════════════════════════════════════════
+function renderCalendar(){
+  if(state.calView==='day') renderDayView();
+  else renderWeekGrid();
+}
+
+function renderWeekGrid(){
+  const todayIdx=new Date().getDay();
+  const todayDay=DAYS[todayIdx===0?6:todayIdx-1];
+  // Build grid: rows = pivots that have tasks, cols = days
+  const activePivots=PIVOT_NAMES.filter(p=>state.schedule.some(s=>s.pivot===p));
+  const allPivots=activePivots.length?activePivots:PIVOT_NAMES.slice(0,8);
+
+  const headerCells=DAYS.map(d=>`<th onclick="setCalDay('${d}')" style="cursor:pointer;${d===todayDay?'color:#4ade80;':''}">
+    ${d}<br/><span style="font-size:8px;color:#374151;">${state.schedule.filter(s=>s.day===d&&!s.done).length||''}</span>
+  </th>`).join('');
+
+  const rows=allPivots.map(p=>{
+    const cells=DAYS.map(d=>{
+      const tasks=state.schedule.filter(s=>s.pivot===p&&s.day===d);
+      const taskHtml=tasks.map(t=>`<div class="cal-task ${t.type}${t.done?' done':''}" onclick="setCalDay('${d}')" title="${t.product}">
+        ${t.type==='spray'?'🧪':'🌱'}${t.product.substring(0,8)}
+      </div>`).join('');
+      return`<td class="${d===todayDay?'today-col':''}">${taskHtml}</td>`;
+    }).join('');
+    return`<tr><td class="pivot-label">${p}<br/><span style="color:#6b7280;font-size:9px;">${HECTARES[p]}ha</span></td>${cells}</tr>`;
+  }).join('');
+
+  // Summary row - day notes indicator
+  const noteRow=DAYS.map(d=>`<td style="text-align:center;">${state.dayNotes[d]?'📝':''}</td>`).join('');
+
+  document.getElementById('pg-calendar').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div style="font-size:12px;color:#6b7280;">${state.calWeekLabel}</div>
+      <button onclick="openEditWeekLabel()" style="background:none;border:none;color:#60a5fa;font-size:11px;">✏️ Edit week</button>
+    </div>
+    <div style="overflow-x:auto;margin-bottom:16px;border-radius:10px;border:1px solid #1e3a2f;">
+      <table class="cal-grid">
+        <thead><tr><th>Pivot</th>${headerCells}</tr></thead>
+        <tbody>${rows}
+        <tr><td class="pivot-label" style="font-size:9px;color:#6b7280;">Notes</td>${noteRow}</tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#60a5fa;">🧪 Spray</div>
+      <div style="display:flex;align-items:center;gap:4px;font-size:11px;color:#facc15;">🌱 Spread</div>
+      <div style="margin-left:auto;font-size:11px;color:#6b7280;">Tap a day for details</div>
+    </div>
+    <div style="font-size:11px;color:#4ade80;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Tap a day to see details & move tasks</div>
+    ${DAYS.map(d=>{
+      const tasks=state.schedule.filter(s=>s.day===d);
+      const done=tasks.filter(t=>t.done).length;
+      const isToday=d===todayDay;
+      return`<button onclick="setCalDay('${d}')" style="width:100%;background:${isToday?'#0d2018':'#0f2318'};border:1px solid ${isToday?'#4ade80':'#1e3a2f'};border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:14px;font-weight:700;color:${isToday?'#4ade80':'#e5e7eb'}">${d}</span>
+          ${state.dayNotes[d]?'<span style="font-size:10px;color:#6b7280;">📝</span>':''}
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:12px;color:#9ca3af;">${tasks.length} task${tasks.length!==1?'s':''}</div>
+          ${done>0?`<div style="font-size:10px;color:#4ade80;">${done} done</div>`:''}
+        </div>
+      </button>`;
+    }).join('')}`;
+}
+
+function setCalDay(day){
+  state.calSelDay=day;
+  state.calView='day';
+  renderCalendar();
+}
+
+function renderDayView(){
+  const d=state.calSelDay;
+  const todayIdx=new Date().getDay();
+  const todayDay=DAYS[todayIdx===0?6:todayIdx-1];
+  const isToday=d===todayDay;
+  const tasks=state.schedule.filter(s=>s.day===d);
+  const dayIdx=DAYS.indexOf(d);
+
+  const taskCards=tasks.length?tasks.map(t=>{
+    const lockout=getSprayLockout(t.pivot);
+    const fertPend=getFertWarn(t.pivot);
+    const hasConflict=(t.type==='spray'&&lockout)||(t.type==='spread'&&fertPend);
+    const moveBtns=DAYS.filter(dd=>dd!==d).map(dd=>`<button class="move-day-btn" onclick="moveTask('${t.id}','${dd}')">${dd}</button>`).join('');
+    return`<div class="day-task-card" style="border-color:${t.done?'#2d5a3d':hasConflict?'#7f1d1d':'#1e3a2f'};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+            <span style="font-size:16px;">${t.type==='spray'?'🧪':'🌱'}</span>
+            <span style="font-weight:800;color:${t.type==='spray'?'#60a5fa':'#facc15'};font-size:14px;">${t.pivot}</span>
+            <span style="font-size:10px;background:${t.type==='spray'?'#1e3a5f':'#2d2000'};color:${t.type==='spray'?'#60a5fa':'#facc15'};padding:2px 6px;border-radius:4px;">${t.type}</span>
+          </div>
+          <div style="font-size:12px;color:#e5e7eb;margin-bottom:2px;">${t.product}</div>
+          <div style="font-size:11px;color:#6b7280;">${t.side}</div>
+          ${hasConflict?`<div style="font-size:10px;color:#f87171;margin-top:4px;">⚠️ ${t.type==='spray'?'Spray lockout active':'Fert irrigation pending'}</div>`:''}
+          ${t.type==='spread'&&!t.done?`<div style="font-size:10px;color:#fb923c;margin-top:2px;">💧 Irrigate 8–10mm on ${t.side} after</div>`:''}
+          ${t.type==='spray'&&!t.done?`<div style="font-size:10px;color:#f87171;margin-top:2px;">🔒 24hr lockout after spraying</div>`:''}
+        </div>
+        <button onclick="toggleSchedDone('${t.id}');renderCalendar();" style="background:${t.done?'#2d5a3d':'#0a1a10'};border:1px solid ${t.done?'#4ade80':'#1e3a2f'};color:${t.done?'#4ade80':'#6b7280'};border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;white-space:nowrap;">${t.done?'✓ Done':'Mark Done'}</button>
+      </div>
+      <!-- Task note -->
+      <div style="margin-bottom:8px;">
+        <div style="font-size:10px;color:#6b7280;margin-bottom:4px;">TASK NOTE</div>
+        <textarea onchange="saveTaskNote('${t.id}',this.value)" style="width:100%;background:#0a1a10;border:1px solid #1e3a2f;border-radius:6px;padding:8px;color:#e5e7eb;font-size:12px;resize:none;height:50px;">${t.note||''}</textarea>
+      </div>
+      <!-- Move to day -->
+      <div>
+        <div style="font-size:10px;color:#6b7280;margin-bottom:4px;">MOVE TO DAY</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px;">${moveBtns}
+          <button class="move-day-btn" onclick="deleteSchedItem('${t.id}');renderCalendar();" style="color:#f87171;border-color:#7f1d1d;">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join(''):`<div style="background:#0f2318;border:1px solid #1e3a2f;border-radius:10px;padding:24px;text-align:center;color:#6b7280;margin-bottom:16px;">No tasks scheduled for ${d}</div>`;
+
+  document.getElementById('pg-calendar').innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+      <button onclick="state.calView='grid';renderCalendar();" style="background:#0a1a10;border:1px solid #1e3a2f;color:#4ade80;border-radius:8px;padding:6px 12px;font-size:12px;">← Week</button>
+      <div>
+        <div style="font-size:20px;font-weight:900;color:${isToday?'#4ade80':'#e5e7eb'};">${d}${isToday?' — Today':''}</div>
+        <div style="font-size:11px;color:#6b7280;">${state.calWeekLabel}</div>
+      </div>
+      <button onclick="openAddSchedForDay('${d}')" style="margin-left:auto;background:#a78bfa;border:none;color:#070f09;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;">+ Add Task</button>
+    </div>
+    <!-- Day navigation -->
+    <div style="display:flex;gap:4px;margin-bottom:16px;overflow-x:auto;">
+      ${DAYS.map(dd=>`<button onclick="setCalDay('${dd}')" style="padding:6px 12px;border-radius:8px;border:none;font-size:11px;font-weight:600;white-space:nowrap;cursor:pointer;background:${dd===d?'#4ade80':'#0f2318'};color:${dd===d?'#070f09':'#6b7280'};border:1px solid ${dd===d?'none':'#1e3a2f'};">${dd}</button>`).join('')}
+    </div>
+    <!-- Tasks -->
+    <div style="font-size:11px;color:#4ade80;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">${tasks.length} Task${tasks.length!==1?'s':''}</div>
+    ${taskCards}
+    <!-- Daily diary -->
+    <div class="diary-box">
+      <div style="font-size:11px;color:#a78bfa;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">📝 Daily Notes — ${d}</div>
+      <textarea id="diary_${d}" onchange="saveDiaryNote('${d}',this.value)" style="width:100%;background:transparent;border:none;color:#e5e7eb;font-size:13px;resize:none;min-height:80px;" placeholder="Add notes for ${d}... weather, observations, issues, instructions...">${state.dayNotes[d]||''}</textarea>
+    </div>`;
+}
+
+function saveTaskNote(taskId, note){
+  state.schedule=state.schedule.map(s=>s.id===taskId?{...s,note}:s);
+}
+
+function saveDiaryNote(day, note){
+  state.dayNotes[day]=note;
+}
+
+function moveTask(taskId, newDay){
+  const task=state.schedule.find(s=>s.id===taskId);
+  if(!task)return;
+  // Check conflicts
+  const lockout=getSprayLockout(task.pivot);
+  const fertPend=getFertWarn(task.pivot);
+  const hasConflict=(task.type==='spray'&&lockout)||(task.type==='spread'&&fertPend);
+  if(hasConflict){
+    showWarn(
+      '⚠️ Scheduling Conflict',
+      `Moving ${task.pivot} ${task.type} to ${newDay}.
+
+${lockout?`Spray lockout: ${lockout.hoursLeft}h remaining.`:''}${fertPend?`Fertilizer needs irrigation first.`:''}
+
+Move anyway?`,
+      ()=>{doMoveTask(taskId,newDay);}
+    );
+  } else {
+    doMoveTask(taskId,newDay);
+  }
+}
+
+function doMoveTask(taskId, newDay){
+  state.schedule=state.schedule.map(s=>s.id===taskId?{...s,day:newDay}:s);
+  logHistory(state.schedule.find(s=>s.id===taskId)?.pivot||'','Task Moved',`Moved to ${newDay}`);
+  state.calSelDay=newDay;
+  renderCalendar();
+  renderDashboard();
+}
+
+function openAddSchedForDay(day){
+  const pivotOpts=PIVOT_NAMES.map(p=>`<option value="${p}">${p}</option>`).join('');
+  const sideOpts=['Full Circle','Top Side','Bottom Side','Top Left Quarter','Top Right Quarter','Bottom Left Quarter','Bottom Right Quarter','Top Left Eighth','Top Right Eighth','Upper Right Eighth','Lower Right Eighth','Bottom Right Eighth','Bottom Left Eighth','Lower Left Eighth','Upper Left Eighth'].map(s=>`<option value="${s}">${s}</option>`).join('');
+  document.getElementById('modalContent').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="font-size:18px;font-weight:800;color:#e5e7eb;">Add Task — ${day}</div>
+      <button onclick="closeModal()" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;font-size:16px;">✕</button>
+    </div>
+    <div class="inp-label">Pivot</div><select class="inp-field" id="sc_pivot">${pivotOpts}</select>
+    <div class="inp-label">Type</div>
+    <select class="inp-field" id="sc_type"><option value="spray">Spray</option><option value="spread">Spread (Fertilizer)</option></select>
+    <div class="inp-label">Product / Description</div>
+    <input type="text" class="inp-field" id="sc_product" placeholder="Product name"/>
+    <div class="inp-label">Side</div><select class="inp-field" id="sc_side">${sideOpts}</select>
+    <div class="inp-label">Note</div><input type="text" class="inp-field" id="sc_note" placeholder="Optional note"/>
+    <button class="btn btn-purple" onclick="saveSchedForDay('${day}')">Add Task</button>`;
+  document.getElementById('mainModal').classList.add('open');
+}
+
+function saveSchedForDay(day){
+  state.schedule.push({
+    id:'s'+Date.now(),
+    pivot:document.getElementById('sc_pivot').value,
+    day:day,
+    type:document.getElementById('sc_type').value,
+    product:document.getElementById('sc_product').value||'Unknown',
+    side:document.getElementById('sc_side').value,
+    note:document.getElementById('sc_note').value,
+    done:false,irrigated:false
+  });
+  closeModal();renderCalendar();renderDashboard();
+}
+
+function openEditWeekLabel(){
+  document.getElementById('modalContent').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div style="font-size:18px;font-weight:800;color:#e5e7eb;">Edit Week Label</div>
+      <button onclick="closeModal()" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;font-size:16px;">✕</button>
+    </div>
+    <div class="inp-label">Week Label</div>
+    <input type="text" class="inp-field" id="wk_label" value="${state.calWeekLabel}" placeholder="e.g. Week 1 Jun – 7 Jun 2026"/>
+    <button class="btn btn-green" onclick="state.calWeekLabel=document.getElementById('wk_label').value;closeModal();renderCalendar();">Save</button>`;
+  document.getElementById('mainModal').classList.add('open');
+}
 
 function checkPreSchedAlerts(){
   const now=Date.now();
@@ -1094,6 +1796,35 @@ state.schedule = [
 // ═══════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════
+// ── localStorage persistence ──────────────────────────────────
+const SAVE_KEYS=['pivots','fertRecs','chemRecs','schedule','calPhotos','dayNotes','preScheduled','plantingHistory','historyLog','irrigHistory'];
+function saveState(){
+  try{
+    SAVE_KEYS.forEach(k=>{
+      if(state[k]!==undefined) localStorage.setItem('ww_'+k,JSON.stringify(state[k]));
+    });
+    // Save PLANT_DATES separately
+    localStorage.setItem('ww_plantDates',JSON.stringify(PLANT_DATES));
+  }catch(e){console.warn('Save error',e);}
+}
+
+function loadState(){
+  try{
+    SAVE_KEYS.forEach(k=>{
+      const v=localStorage.getItem('ww_'+k);
+      if(v){try{state[k]=JSON.parse(v);}catch(e){}}
+    });
+    const pd=localStorage.getItem('ww_plantDates');
+    if(pd){try{const d=JSON.parse(pd);Object.assign(PLANT_DATES,d);}catch(e){}}
+  }catch(e){console.warn('Load error',e);}
+}
+
+// Auto-save every 30s and on page hide
+loadState();
+setInterval(saveState,30000);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)saveState();});
+window.addEventListener('beforeunload',saveState);
+
 document.getElementById('dateDisplay').textContent=new Date().toLocaleDateString('en-ZA',{day:'2-digit',month:'short',year:'numeric'});
 setInterval(()=>{checkPreSchedAlerts();if(state.currentPage==='dashboard')renderDashboard();else if(state.currentPage==='detail')renderDetail();},60000);
 renderDashboard();
