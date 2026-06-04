@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>Waka Waka Pivot Tracker</title>
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:#070f09;color:#e5e7eb;font-family:'Trebuchet MS',Arial,sans-serif;overscroll-behavior:none;}
+input,select,textarea{outline:none;-webkit-appearance:none;appearance:none;font-family:inherit;}
+button{-webkit-appearance:none;appearance:none;font-family:inherit;cursor:pointer;}
+::-webkit-scrollbar{display:none;}
+#app{max-width:480px;margin:0 auto;min-height:100vh;position:relative;}
+.page{padding:16px 16px 100px;display:none;}
+.page.active{display:block;}
+.page-map{display:none;height:calc(100vh - 120px);}
+.page-map.active{display:block;}
+#mapview{height:100%;width:100%;}
+.pivot-map-label{background:rgba(0,0,0,0.8);color:#4ade80;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:700;white-space:nowrap;}
+.header{position:sticky;top:0;z-index:50;background:#070f09;border-bottom:1px solid #1e3a2f;padding:12px 16px;}
+.card{background:#0f2318;border:1px solid #1e3a2f;border-radius:10px;padding:12px 14px;margin-bottom:8px;}
+.pcard{background:#0f2318;border:1px solid #1e3a2f;border-radius:12px;padding:10px;cursor:pointer;}
+.btn{width:100%;border:none;border-radius:10px;padding:13px;font-weight:800;font-size:14px;cursor:pointer;margin-bottom:8px;}
+.btn-green{background:#4ade80;color:#070f09;}
+.btn-red{background:#ef4444;color:#fff;}
+.btn-blue{background:#60a5fa;color:#070f09;}
+.btn-purple{background:#a78bfa;color:#070f09;}
+.btn-yellow{background:#facc15;color:#070f09;}
+.btn-orange{background:#fb923c;color:#070f09;}
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#070f09;border-top:1px solid #1e3a2f;display:flex;z-index:50;}
+.nav-btn{flex:1;padding:8px 0;background:none;border:none;text-align:center;}
+.nav-lbl{font-size:9px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600;color:#4b5563;}
+.nav-lbl.on{color:#4ade80;}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:200;align-items:flex-end;}
+.overlay.open{display:flex;}
+.mbox{background:#0d1f14;border-radius:20px 20px 0 0;width:100%;padding:20px 20px 48px;max-height:88vh;overflow-y:auto;}
+.wo{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:300;align-items:center;justify-content:center;padding:20px;}
+.wo.open{display:flex;}
+.wb{background:#1a0a0a;border:1px solid #7f1d1d;border-radius:16px;padding:24px;max-width:360px;width:100%;}
+.il{font-size:11px;color:#6b7280;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.8px;}
+.if{width:100%;background:#0a1a10;border:1px solid #1e3a2f;border-radius:8px;padding:10px 12px;color:#e5e7eb;font-size:14px;margin-bottom:12px;}
+.ib{width:100%;background:#0a1a10;border:1px solid #1e3a2f;border-radius:8px;padding:10px 12px;color:#e5e7eb;font-size:14px;margin-bottom:12px;}
+.detail-stat{background:#0f2318;border:1px solid #1e3a2f;border-radius:10px;padding:12px;}
+.tab-bar{display:flex;gap:4px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px;-webkit-overflow-scrolling:touch;}
+.tab-btn{flex:0 0 auto;padding:7px 13px;border-radius:8px;border:none;font-size:11px;font-weight:600;white-space:nowrap;background:#0a1a10;color:#6b7280;}
+.tab-btn.on{background:#4ade80;color:#070f09;}
+.speed-row{display:grid;grid-template-columns:1fr 1fr 1fr 36px;padding:9px 16px;border-top:1px solid #1e3a2f;cursor:pointer;}
+.speed-row:hover{background:#0f2318;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button id="backBtn" onclick="goBack()" style="display:none;background:none;border:none;color:#4ade80;font-size:20px;padding:0 6px 0 0;">←</button>
+      <div style="flex:1;">
+        <div id="pageTitle" style="font-size:20px;font-weight:900;color:#e5e7eb;font-family:Georgia,serif;">Waka Waka</div>
+        <div id="pageSub" style="font-size:9px;color:#2d5a3d;text-transform:uppercase;letter-spacing:2px;">Muller Farm · Pivot Tracker</div>
+      </div>
+      <div id="hdRight" style="font-size:10px;color:#2d5a3d;text-align:right;"></div>
+    </div>
+  </div>
+  <div id="pg-dashboard" class="page active"></div>
+  <div id="pg-map" class="page-map"></div>
+  <div id="pg-detail" class="page"></div>
+  <div id="pg-records" class="page"></div>
+  <div id="pg-tables" class="page"></div>
+  <div id="pg-planner" class="page"></div>
+  <div id="pg-calendar" class="page"></div>
+  <div id="pg-history" class="page"></div>
+  <div class="nav">
+    <button class="nav-btn" onclick="showPage('dashboard')"><div style="font-size:15px;">🏠</div><div class="nav-lbl on" id="nl-dashboard">Farm</div></button>
+    <button class="nav-btn" onclick="showPage('map')"><div style="font-size:15px;">🗺</div><div class="nav-lbl" id="nl-map">Map</div></button>
+    <button class="nav-btn" onclick="showPage('planner')"><div style="font-size:15px;">📅</div><div class="nav-lbl" id="nl-planner">Planner</div></button>
+    <button class="nav-btn" onclick="showPage('records')"><div style="font-size:15px;">📋</div><div class="nav-lbl" id="nl-records">Records</div></button>
+    <button class="nav-btn" onclick="showPage('tables')"><div style="font-size:15px;">⚡</div><div class="nav-lbl" id="nl-tables">Tables</div></button>
+    <button class="nav-btn" onclick="showPage('history')"><div style="font-size:15px;">📜</div><div class="nav-lbl" id="nl-history">History</div></button>
+  </div>
+  <div class="overlay" id="mainModal" onclick="if(event.target===this)closeModal()"><div class="mbox" id="modalContent"></div></div>
+  <div class="wo" id="warnModal"><div class="wb" id="warnContent"></div></div>
+</div>
+<script>
+// ═══════════════════════════════════════════════════════
+// FARM DATA
+// ═══════════════════════════════════════════════════════
+const ST={
+  P0:{100:{mm:2.4,hrs:7.3},95:{mm:2.6,hrs:7.7},90:{mm:2.7,hrs:8.1},85:{mm:2.9,hrs:8.6},80:{mm:3.1,hrs:9.1},75:{mm:3.3,hrs:9.7},70:{mm:3.5,hrs:10.4},65:{mm:3.8,hrs:11.2},60:{mm:4.1,hrs:12.1},55:{mm:4.4,hrs:13.2},50:{mm:4.9,hrs:14.5},45:{mm:5.4,hrs:16.2},40:{mm:6.1,hrs:18.2},35:{mm:7.0,hrs:20.8},30:{mm:8.1,hrs:24.2},25:{mm:9.8,hrs:29.1},20:{mm:12.2,hrs:36.3},15:{mm:16.3,hrs:48.5},10:{mm:24.4,hrs:72.7},5:{mm:48.9,hrs:145.4}},
+  P1:{100:{mm:3.7,hrs:10.2},95:{mm:3.9,hrs:10.7},90:{mm:4.1,hrs:11.3},85:{mm:4.3,hrs:12.0},80:{mm:4.6,hrs:12.7},75:{mm:4.9,hrs:13.6},70:{mm:5.3,hrs:14.5},65:{mm:5.7,hrs:15.6},60:{mm:6.1,hrs:17.0},55:{mm:6.7,hrs:18.5},50:{mm:7.4,hrs:20.3},45:{mm:8.2,hrs:22.6},40:{mm:9.2,hrs:25.4},35:{mm:10.5,hrs:29.1},30:{mm:12.3,hrs:33.9},25:{mm:14.7,hrs:40.7},20:{mm:18.4,hrs:50.9},15:{mm:24.6,hrs:67.8},10:{mm:36.8,hrs:101.7},5:{mm:73.7,hrs:203.4}},
+  P2:{100:{mm:3.7,hrs:10.2},95:{mm:3.9,hrs:10.7},90:{mm:4.1,hrs:11.3},85:{mm:4.3,hrs:12.0},80:{mm:4.6,hrs:12.7},75:{mm:4.9,hrs:13.6},70:{mm:5.3,hrs:14.5},65:{mm:5.7,hrs:15.6},60:{mm:6.1,hrs:17.0},55:{mm:6.7,hrs:18.5},50:{mm:7.4,hrs:20.3},45:{mm:8.2,hrs:22.6},40:{mm:9.2,hrs:25.4},35:{mm:10.5,hrs:29.1},30:{mm:12.3,hrs:33.9},25:{mm:14.7,hrs:40.7},20:{mm:18.4,hrs:50.9},15:{mm:24.6,hrs:67.8},10:{mm:36.8,hrs:101.7},5:{mm:73.7,hrs:203.4}},
+  P3:{100:{mm:3.7,hrs:10.2},95:{mm:3.9,hrs:10.7},90:{mm:4.1,hrs:11.3},85:{mm:4.3,hrs:12.0},80:{mm:4.6,hrs:12.7},75:{mm:4.9,hrs:13.6},70:{mm:5.3,hrs:14.5},65:{mm:5.7,hrs:15.6},60:{mm:6.1,hrs:17.0},55:{mm:6.7,hrs:18.5},50:{mm:7.4,hrs:20.3},45:{mm:8.2,hrs:22.6},40:{mm:9.2,hrs:25.4},35:{mm:10.5,hrs:29.1},30:{mm:12.3,hrs:33.9},25:{mm:14.7,hrs:40.7},20:{mm:18.4,hrs:50.9},15:{mm:24.6,hrs:67.8},10:{mm:36.8,hrs:101.7},5:{mm:73.7,hrs:203.4}},
+  P4:{100:{mm:3.6,hrs:11.6},95:{mm:3.8,hrs:12.2},90:{mm:4.0,hrs:12.9},85:{mm:4.3,hrs:13.7},80:{mm:4.5,hrs:14.5},75:{mm:4.8,hrs:15.5},70:{mm:5.2,hrs:16.6},65:{mm:5.6,hrs:17.9},60:{mm:6.0,hrs:19.4},55:{mm:6.6,hrs:21.1},50:{mm:7.2,hrs:23.2},45:{mm:8.0,hrs:25.8},40:{mm:9.0,hrs:29.1},35:{mm:10.3,hrs:33.2},30:{mm:12.1,hrs:38.7},25:{mm:14.5,hrs:46.5},20:{mm:18.1,hrs:58.1},15:{mm:24.1,hrs:77.5},10:{mm:36.2,hrs:116.2},5:{mm:72.3,hrs:232.5}},
+  P5:{100:{mm:4.1,hrs:10.2},95:{mm:4.3,hrs:10.7},90:{mm:4.5,hrs:11.3},85:{mm:4.8,hrs:12.0},80:{mm:5.1,hrs:12.7},75:{mm:5.4,hrs:13.6},70:{mm:5.8,hrs:14.5},65:{mm:6.3,hrs:15.6},60:{mm:6.8,hrs:17.0},55:{mm:7.4,hrs:18.5},50:{mm:8.1,hrs:20.3},45:{mm:9.0,hrs:22.6},40:{mm:10.2,hrs:25.4},35:{mm:11.6,hrs:29.1},30:{mm:13.6,hrs:33.9},25:{mm:16.3,hrs:40.7},20:{mm:20.3,hrs:50.9},15:{mm:27.1,hrs:67.8},10:{mm:40.7,hrs:101.7},5:{mm:81.4,hrs:203.4}},
+  P6:{100:{mm:3.3,hrs:11.6},95:{mm:3.4,hrs:12.2},90:{mm:3.6,hrs:12.9},85:{mm:3.9,hrs:13.7},80:{mm:4.1,hrs:14.5},75:{mm:4.4,hrs:15.5},70:{mm:4.7,hrs:16.6},65:{mm:5.0,hrs:17.9},60:{mm:5.5,hrs:19.4},55:{mm:6.0,hrs:21.1},50:{mm:6.5,hrs:23.2},45:{mm:7.3,hrs:25.8},40:{mm:8.2,hrs:29.1},35:{mm:9.4,hrs:33.2},30:{mm:10.9,hrs:38.7},25:{mm:13.1,hrs:46.5},20:{mm:16.4,hrs:58.1},15:{mm:21.8,hrs:77.5},10:{mm:32.7,hrs:116.2},5:{mm:65.5,hrs:232.5}},
+  P7:{100:{mm:5.4,hrs:5.8},95:{mm:5.7,hrs:6.1},90:{mm:6.0,hrs:6.5},85:{mm:6.3,hrs:6.8},80:{mm:6.7,hrs:7.3},75:{mm:7.2,hrs:7.8},70:{mm:7.7,hrs:8.3},65:{mm:8.3,hrs:9.0},60:{mm:9.0,hrs:9.7},55:{mm:9.8,hrs:10.6},50:{mm:10.8,hrs:11.6},45:{mm:12.0,hrs:12.9},40:{mm:13.5,hrs:14.5},35:{mm:15.4,hrs:16.6},30:{mm:18.0,hrs:19.4},25:{mm:21.6,hrs:23.3},20:{mm:27.0,hrs:29.1},15:{mm:36.0,hrs:38.8},10:{mm:54.0,hrs:58.2},5:{mm:107.9,hrs:116.4}},
+  P8:{100:{mm:5.4,hrs:5.8},95:{mm:5.7,hrs:6.1},90:{mm:6.0,hrs:6.5},85:{mm:6.3,hrs:6.8},80:{mm:6.7,hrs:7.3},75:{mm:7.2,hrs:7.8},70:{mm:7.7,hrs:8.3},65:{mm:8.3,hrs:9.0},60:{mm:9.0,hrs:9.7},55:{mm:9.8,hrs:10.6},50:{mm:10.8,hrs:11.6},45:{mm:12.0,hrs:12.9},40:{mm:13.5,hrs:14.5},35:{mm:15.4,hrs:16.6},30:{mm:18.0,hrs:19.4},25:{mm:21.6,hrs:23.3},20:{mm:27.0,hrs:29.1},15:{mm:36.0,hrs:38.8},10:{mm:54.0,hrs:58.2},5:{mm:107.9,hrs:116.4}},
+  P9:{100:{mm:9.0,hrs:14.5},95:{mm:9.5,hrs:15.3},90:{mm:10.0,hrs:16.2},85:{mm:10.6,hrs:17.1},80:{mm:11.3,hrs:18.2},75:{mm:12.0,hrs:19.4},70:{mm:12.9,hrs:20.8},65:{mm:13.8,hrs:22.4},60:{mm:15.0,hrs:24.2},55:{mm:16.4,hrs:26.4},50:{mm:18.0,hrs:29.1},45:{mm:20.0,hrs:32.3},40:{mm:22.5,hrs:36.3},35:{mm:25.7,hrs:41.5},30:{mm:30.0,hrs:48.5},25:{mm:36.0,hrs:58.2},20:{mm:45.0,hrs:72.7},15:{mm:60.0,hrs:96.9},10:{mm:90.0,hrs:145.4},5:{mm:180.0,hrs:290.8}},
+  P10:{100:{mm:3.7,hrs:13.1},95:{mm:3.9,hrs:13.8},90:{mm:4.1,hrs:14.5},85:{mm:4.4,hrs:15.4},80:{mm:4.6,hrs:16.3},75:{mm:4.9,hrs:17.4},70:{mm:5.3,hrs:18.7},65:{mm:5.7,hrs:20.1},60:{mm:6.2,hrs:21.8},55:{mm:6.7,hrs:23.8},50:{mm:7.4,hrs:26.1},45:{mm:8.2,hrs:29.1},40:{mm:9.3,hrs:32.7},35:{mm:10.6,hrs:37.4},30:{mm:12.3,hrs:43.6},25:{mm:14.8,hrs:52.3},20:{mm:18.5,hrs:65.4},15:{mm:24.7,hrs:87.2},10:{mm:37.0,hrs:130.7},5:{mm:74.0,hrs:261.5}},
+  P11:{100:{mm:4.6,hrs:18.8},95:{mm:4.8,hrs:19.8},90:{mm:5.1,hrs:20.9},85:{mm:5.4,hrs:22.1},80:{mm:5.7,hrs:23.5},75:{mm:6.1,hrs:25.1},70:{mm:6.5,hrs:26.8},65:{mm:7.0,hrs:28.9},60:{mm:7.6,hrs:31.3},55:{mm:8.3,hrs:34.2},50:{mm:9.1,hrs:37.6},45:{mm:10.1,hrs:41.8},40:{mm:11.4,hrs:47.0},35:{mm:13.0,hrs:53.7},30:{mm:15.2,hrs:62.6},25:{mm:18.2,hrs:75.2},20:{mm:22.8,hrs:94.0},15:{mm:30.3,hrs:125.3},10:{mm:45.5,hrs:187.9},5:{mm:91.0,hrs:375.9}},
+  P12:{100:{mm:1.8,hrs:2.9},95:{mm:1.9,hrs:3.1},90:{mm:2.0,hrs:3.2},85:{mm:2.1,hrs:3.4},80:{mm:2.2,hrs:3.6},75:{mm:2.4,hrs:3.9},70:{mm:2.5,hrs:4.1},65:{mm:2.7,hrs:4.5},60:{mm:3.0,hrs:4.8},55:{mm:3.2,hrs:5.3},50:{mm:3.6,hrs:5.8},45:{mm:4.0,hrs:6.4},40:{mm:4.4,hrs:7.3},35:{mm:5.1,hrs:8.3},30:{mm:5.9,hrs:9.7},25:{mm:7.1,hrs:11.6},20:{mm:8.9,hrs:14.5},15:{mm:11.9,hrs:19.3},10:{mm:17.8,hrs:29.0},5:{mm:35.6,hrs:58.0}}
+};
+const PN=["P0","P1","P2","P3","P4","P5","P6","P7","P8","P9","P10","P11","P12"];
+const SP=[100,95,90,85,80,75,70,65,60,55,50,45,40,35,30,25,20,15,10,5];
+const HA={P0:28,P1:52,P2:52,P3:52,P4:67,P5:52,P6:67,P7:18,P8:18,P9:24,P10:84,P11:25,P12:12};
+const THA=Object.values(HA).reduce((a,b)=>a+b,0);
+const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const AM=["Full Circle","Top Side","Bottom Side","Top Left Quarter","Top Right Quarter","Bottom Left Quarter","Bottom Right Quarter","Top Left Eighth","Top Right Eighth","Upper Right Eighth","Lower Right Eighth","Bottom Right Eighth","Bottom Left Eighth","Lower Left Eighth","Upper Left Eighth"];
+const MF={"Full Circle":1,"Top Side":0.5,"Bottom Side":0.5,"Top Left Quarter":0.25,"Top Right Quarter":0.25,"Bottom Left Quarter":0.25,"Bottom Right Quarter":0.25,"Top Left Eighth":0.125,"Top Right Eighth":0.125,"Upper Right Eighth":0.125,"Lower Right Eighth":0.125,"Bottom Right Eighth":0.125,"Bottom Left Eighth":0.125,"Lower Left Eighth":0.125,"Upper Left Eighth":0.125};
+const MR={"Full Circle":-90,"Top Side":-90,"Bottom Side":90,"Top Left Quarter":180,"Top Right Quarter":-90,"Bottom Left Quarter":90,"Bottom Right Quarter":0,"Top Left Eighth":-180,"Top Right Eighth":-90,"Upper Right Eighth":-45,"Lower Right Eighth":0,"Bottom Right Eighth":45,"Bottom Left Eighth":90,"Lower Left Eighth":135,"Upper Left Eighth":180};
+const MA={"Full Circle":"FC","Top Side":"T½","Bottom Side":"B½","Top Left Quarter":"TL¼","Top Right Quarter":"TR¼","Bottom Left Quarter":"BL¼","Bottom Right Quarter":"BR¼","Top Left Eighth":"TL⅛","Top Right Eighth":"TR⅛","Upper Right Eighth":"UR⅛","Lower Right Eighth":"LR⅛","Bottom Right Eighth":"BR⅛","Bottom Left Eighth":"BL⅛","Lower Left Eighth":"LL⅛","Upper Left Eighth":"UL⅛"};
+let PD={P0:"2026-05-07",P1:"2026-05-02",P2:"2026-04-30",P3:"2026-05-05",P4:"2026-05-06",P5:"2026-05-11",P6:"2026-05-15",P7:null,P8:"2026-04-29",P9:"2026-04-25",P10:"2026-05-13",P11:"2026-04-27",P12:null};
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let S={
+  pivots:PN.map(id=>({id,active:false,startTime:null,stopTime:null,speed:100,mode:"Full Circle",mapPin:null})),
+  fertRecs:[],chemRecs:[],schedule:[],calPhotos:[],
+  dayNotes:{Mon:"",Tue:"",Wed:"",Thu:"",Fri:"",Sat:"",Sun:""},
+  preScheduled:[],plantingHistory:{},irrigHistory:{},historyLog:[],
+  page:"dashboard",selPivot:null,detailTab:"irrigation",
+  recTab:"fert",tblPivot:"P0",
+  calView:"grid",calSelDay:"Mon",
+  histTab:"log",pendingStart:null
+};
+
+// Default schedule
+const DEFAULT_SCHED=[
+  {id:"c1",pivot:"P3",day:"Mon",type:"spread",product:"NPK 34 - 200kg/ha",side:"Full Circle",done:false,note:""},
+  {id:"c2",pivot:"P10",day:"Mon",type:"spray",product:"Spray 4 PostEm - Albuff 0.2L, Balancer 2kg, Judge 0.8L, Emma 0.3L, Starmax (TBA), Rescue 0.5L, Voloxynl 1.5L, Actikelp 1L",side:"Full Circle",done:false,note:""},
+  {id:"c3",pivot:"P6",day:"Mon",type:"spread",product:"Spread 1 - NPK 34 200kg/ha",side:"Full Circle",done:false,note:""},
+  {id:"c4",pivot:"P4",day:"Tue",type:"spread",product:"Spread 2 - NPK 34 200kg/ha",side:"Top Side",done:false,note:""},
+  {id:"c5",pivot:"P0",day:"Tue",type:"spread",product:"Spread 2 - NPK 34 200kg/ha",side:"Full Circle",done:false,note:""},
+  {id:"c6",pivot:"P5",day:"Tue",type:"spray",product:"Spray 4 PostEm - Albuff 0.2L, Balancer 2kg, Judge 0.8L, Emma 0.3L, Starmax 0.0125kg, Rescue 0.5L, Voloxynl 1.5L, Actikelp 1L",side:"Full Circle",done:false,note:""},
+  {id:"c7",pivot:"P6",day:"Wed",type:"spray",product:"Spray 5 PostEm Grass - Albuff 0.2L, Actikelp 1L, TipTop 0.35L, Silwet 0.07L",side:"Full Circle",done:false,note:""},
+  {id:"c8",pivot:"P9",day:"Thu",type:"spray",product:"Fungi 1 - Albuff 0.2L, Meta Boron 1L, Fortix 0.5L, Sodium Moly 0.1L, Thiamex 0.4kg, Micro Z 1L, Newsil 0.5L, Tripple 10 1L, Silwet 0.07L",side:"Full Circle",done:false,note:""},
+  {id:"c9",pivot:"P3",day:"Thu",type:"spray",product:"Spray 5 PostEm Grass - Albuff 0.2L, Actikelp 1L, TipTop 0.35L, Silwet 0.07L",side:"Full Circle",done:false,note:""},
+  {id:"c10",pivot:"P6",day:"Thu",type:"spread",product:"MOP Correction - 150kg",side:"Full Circle",done:false,note:""},
+  {id:"c11",pivot:"P9",day:"Fri",type:"spread",product:"Spread 3 - 3.0.1 200kg/ha",side:"Full Circle",done:false,note:""},
+  {id:"c12",pivot:"P4",day:"Fri",type:"spray",product:"Spray 5 PostEm Grass - Albuff 0.2L, Actikelp 1L, TipTop 0.35L, Silwet 0.07L",side:"Top Side",done:false,note:""},
+  {id:"c13",pivot:"P5",day:"Fri",type:"spread",product:"Spread 2 - NPK 34 200kg/ha",side:"Full Circle",done:false,note:""},
+  {id:"c14",pivot:"P4",day:"Fri",type:"spray",product:"Spray 2 Soil - Amino K 2L, Ingwabor 2kg, Bandit 0.4L",side:"Bottom Side",done:false,note:""},
+  {id:"c15",pivot:"P11",day:"Sat",type:"spray",product:"Fungi 1 - Albuff 0.2L, Meta Boron 1L, Fortix 0.5L, Sodium Moly 0.1L, Thiamex 0.4kg, Micro Z 1L, Newsil 0.5L, Tripple 10 1L, Silwet 0.07L",side:"Full Circle",done:false,note:""},
+  {id:"c16",pivot:"P0",day:"Sat",type:"spray",product:"Spray 5 PostEm Grass - Albuff 0.2L, Actikelp 1L, TipTop 0.35L, Silwet 0.07L",side:"Full Circle",done:false,note:""},
+];
+
+// ═══════════════════════════════════════════════════════
+// PERSISTENCE - localStorage
+// ═══════════════════════════════════════════════════════
+const SK=["pivots","fertRecs","chemRecs","schedule","calPhotos","dayNotes","preScheduled","plantingHistory","irrigHistory","historyLog"];
+function save(){
+  try{
+    SK.forEach(k=>{if(S[k]!==undefined)localStorage.setItem("ww_"+k,JSON.stringify(S[k]));});
+    localStorage.setItem("ww_pd",JSON.stringify(PD));
+  }catch(e){}
+}
+function load(){
+  try{
+    let hasData=false;
+    SK.forEach(k=>{
+      const v=localStorage.getItem("ww_"+k);
+      if(v){try{S[k]=JSON.parse(v);hasData=true;}catch(e){}}
+    });
+    const pd=localStorage.getItem("ww_pd");
+    if(pd){try{Object.assign(PD,JSON.parse(pd));}catch(e){}}
+    // If no saved schedule, load default
+    if(!hasData||!S.schedule||S.schedule.length===0) S.schedule=DEFAULT_SCHED;
+  }catch(e){S.schedule=DEFAULT_SCHED;}
+}
+load();
+setInterval(save,30000);
+document.addEventListener("visibilitychange",()=>{if(document.hidden)save();});
+window.addEventListener("beforeunload",save);
+
+// ═══════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════
+function sdg(id,spd){return(ST[id]||{})[spd]||null;}
+function p2(n){return String(n).padStart(2,"0");}
+function ft(d){if(!d||isNaN(new Date(d).getTime()))return"--";const x=new Date(d);return x.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});}
+function fdt(d){if(!d)return"--";const x=new Date(d);if(isNaN(x.getTime()))return"--";return x.toLocaleDateString("en-ZA",{day:"2-digit",month:"short"})+" "+x.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});}
+function fd(d){if(!d)return"Not set";return new Date(d).toLocaleDateString("en-ZA",{day:"2-digit",month:"short",year:"numeric"});}
+function gdap(id){const pd=PD[id];if(!pd)return null;return Math.floor((Date.now()-new Date(pd).getTime())/86400000);}
+function pst(st){
+  if(!st)return null;
+  let d=new Date(st);
+  if(isNaN(d.getTime()))d=new Date(st.replace("T"," "));
+  if(isNaN(d.getTime())&&st.length===16)d=new Date(st+":00");
+  return isNaN(d.getTime())?null:d;
+}
+function cp(p){
+  if(!p.active||!p.startTime)return null;
+  const s=sdg(p.id,p.speed);if(!s)return null;
+  const frac=MF[p.mode]||1;
+  // TIME uses fraction, but mm/rev is the FULL value regardless of mode
+  const totalHrs=s.hrs*frac;
+  const sd=pst(p.startTime);if(!sd)return null;
+  const el=(Date.now()-sd.getTime())/3600000;
+  if(isNaN(el)||el<0)return null;
+  const pct=Math.min(100,(el/totalHrs)*100);
+  const mmNow=s.mm*(pct/100); // mm applied so far (full mm/rev * progress)
+  return{pct,el,totalHrs,rem:Math.max(0,totalHrs-el),finish:new Date(sd.getTime()+totalHrs*3600000),mm:s.mm,mmNow,frac};
+}
+function gsl(id){
+  const sp=S.chemRecs.filter(r=>r.pivot===id&&r.sprayTime);
+  if(!sp.length)return null;
+  const lt=sp.sort((a,b)=>new Date(b.sprayTime)-new Date(a.sprayTime))[0];
+  const el=(Date.now()-new Date(lt.sprayTime).getTime())/3600000;
+  return el<24?{h:(24-el).toFixed(1)}:null;
+}
+function gfw(id){
+  const p=S.fertRecs.filter(r=>r.pivot===id&&r.needsIrrigation&&!r.irrigated);
+  return p.length?p[p.length-1]:null;
+}
+function lh(pivot,action,detail){S.historyLog.unshift({id:"h"+Date.now(),timestamp:new Date().toISOString(),pivot,action,detail});}
+function getSeason(){const m=new Date().getMonth();return m>=3&&m<=8?"Autumn/Winter":"Spring/Summer";}
+
+// ═══════════════════════════════════════════════════════
+// SVG CIRCLE DRAWING
+// ═══════════════════════════════════════════════════════
+function dc(id,pct,mode,sz,active,warn){
+  const cx=sz/2,cy=sz/2,r=sz*0.37,sw=sz*0.12;
+  const circ=2*Math.PI*r,frac=MF[mode]||1,rot=MR[mode]!=null?MR[mode]:-90;
+  const safePct=Math.max(0,Math.min(100,pct));
+  const ta=circ*frac,fa=ta*(safePct/100);
+  const tc=warn?"#7f1d1d":"#1e3a2f",rc=warn?"#450a0a":"#2d5a3d",fc=warn?"#f87171":"#4ade80",dc2=active?(warn?"#f87171":"#4ade80"):"#374151";
+  let divs="";
+  const dr=r+sw/2;
+  if(mode.includes("Eighth")){
+    divs=Array.from({length:8},(_,i)=>{const a=(i*45-90)*Math.PI/180;return`<line x1="${cx.toFixed(1)}" y1="${cy.toFixed(1)}" x2="${(cx+dr*Math.cos(a)).toFixed(1)}" y2="${(cy+dr*Math.sin(a)).toFixed(1)}" stroke="#1e3a2f" stroke-width="0.8" stroke-dasharray="2,2"/>`;}).join("");
+  } else if(mode.includes("Quarter")){
+    divs=`<line x1="${cx.toFixed(1)}" y1="${(cy-dr).toFixed(1)}" x2="${cx.toFixed(1)}" y2="${(cy+dr).toFixed(1)}" stroke="#1e3a2f" stroke-width="0.8" stroke-dasharray="2,2"/><line x1="${(cx-dr).toFixed(1)}" y1="${cy.toFixed(1)}" x2="${(cx+dr).toFixed(1)}" y2="${cy.toFixed(1)}" stroke="#1e3a2f" stroke-width="0.8" stroke-dasharray="2,2"/>`;
+  } else if(mode==="Top Side"||mode==="Bottom Side"){
+    divs=`<line x1="${(cx-dr).toFixed(1)}" y1="${cy.toFixed(1)}" x2="${(cx+dr).toFixed(1)}" y2="${cy.toFixed(1)}" stroke="#1e3a2f" stroke-width="0.8" stroke-dasharray="2,2"/>`;
+  }
+  let arm="";
+  if(active){const angle=(rot+(safePct/100)*frac*360)*Math.PI/180;arm=`<line x1="${cx.toFixed(1)}" y1="${cy.toFixed(1)}" x2="${(cx+r*Math.cos(angle)).toFixed(1)}" y2="${(cy+r*Math.sin(angle)).toFixed(1)}" stroke="#facc15" stroke-width="${(sz*0.04).toFixed(1)}" stroke-linecap="round"/>`;}
+  const abbr=MA[mode]||"";
+  return`<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}"><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${tc}" stroke-width="${sw}"/>${divs}${active?`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${rc}" stroke-width="${sw}" stroke-dasharray="${ta.toFixed(1)} ${circ.toFixed(1)}" stroke-linecap="round" transform="rotate(${rot} ${cx} ${cy})"/>`:""}${active?`<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${fc}" stroke-width="${sw}" stroke-dasharray="${fa.toFixed(1)} ${circ.toFixed(1)}" stroke-linecap="round" transform="rotate(${rot} ${cx} ${cy})"/>`:""}${arm}<circle cx="${cx}" cy="${cy}" r="${(sz*0.06).toFixed(1)}" fill="${dc2}"/>${mode!=="Full Circle"?`<text x="${cx}" y="${(cy+sz*0.06).toFixed(1)}" text-anchor="middle" fill="#4b5563" font-size="${(sz*0.13).toFixed(1)}" font-family="Arial">${abbr}</text>`:""}</svg>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════
+function showPage(pg){
+  S.page=pg;
+  document.querySelectorAll(".page,.page-map").forEach(p=>p.classList.remove("active"));
+  const el=document.getElementById("pg-"+pg);if(el)el.classList.add("active");
+  document.querySelectorAll(".nav-lbl").forEach(l=>l.classList.remove("on"));
+  const nl=document.getElementById("nl-"+pg);if(nl)nl.classList.add("on");
+  document.getElementById("backBtn").style.display=pg==="detail"?"":"none";
+  document.getElementById("pageTitle").style.fontSize=(pg==="dashboard"?"20":"17")+"px";
+  document.getElementById("pageSub").style.display=pg==="dashboard"?"":"none";
+  const titles={dashboard:"Waka Waka",map:"Farm Map",detail:S.selPivot||"",records:"Records",tables:"Speed Tables",planner:"Weekly Planner",calendar:"Calendar",history:"History"};
+  document.getElementById("pageTitle").textContent=titles[pg]||pg;
+  document.getElementById("hdRight").textContent=pg==="dashboard"?new Date().toLocaleDateString("en-ZA",{day:"2-digit",month:"short",year:"numeric"}):"";
+  render(pg);
+}
+function goBack(){showPage("dashboard");}
+function openPivot(id){S.selPivot=id;S.detailTab="irrigation";showPage("detail");}
+function render(pg){
+  if(pg==="dashboard")rDash();
+  else if(pg==="map")rMap();
+  else if(pg==="detail")rDetail();
+  else if(pg==="records")rRecs();
+  else if(pg==="tables")rTables();
+  else if(pg==="planner")rPlanner();
+  else if(pg==="calendar")rCal();
+  else if(pg==="history")rHistory();
+}
+
+// ═══════════════════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════════════════
+function rDash(){
+  const active=S.pivots.filter(p=>p.active);
+  const activeHa=active.reduce((s,p)=>s+(HA[p.id]||0),0);
+  const ti=new Date().getDay();
+  const today=DAYS[ti===0?6:ti-1];
+  const todayT=S.schedule.filter(t=>!t.done&&t.day===today);
+  const now=Date.now();
+  const upcomingPS=S.preScheduled.filter(s=>{const t=new Date(s.scheduledTime).getTime();return t>now&&t-now<4*3600000;}).sort((a,b)=>new Date(a.scheduledTime)-new Date(b.scheduledTime));
+  function sc(p,pr){if(!p.active)return"#6b7280";if(!pr)return"#6b7280";if(pr.pct>=95)return"#facc15";return"#4ade80";}
+  function sl(p,pr){if(!p.active)return"Off";if(!pr)return"Running";if(pr.pct>=100)return"Done ✓";if(pr.pct>=95)return"Near Finish";return"Running";}
+  const upBanner=upcomingPS.length?`<div style="background:#0a1f2e;border:1px solid #1e4a6f;border-radius:12px;padding:12px;margin-bottom:12px;"><div style="font-size:11px;font-weight:700;color:#60a5fa;margin-bottom:4px;">⏰ UPCOMING IRRIGATIONS</div>${upcomingPS.map(s=>{const mins=Math.round((new Date(s.scheduledTime).getTime()-now)/60000);return`<div style="font-size:12px;color:#9ca3af;">${s.pivot} - ${ft(new Date(s.scheduledTime))} (in ${mins<60?mins+"min":Math.floor(mins/60)+"h "+mins%60+"m"}) - ${MA[s.mode]||s.mode} - ${s.speed}%</div>`;}).join("")}</div>`:"";
+  const todayBanner=todayT.length?`<div onclick="showPage('planner')" style="background:#1a0f00;border:1px solid #854d0e;border-radius:12px;padding:12px;margin-bottom:12px;cursor:pointer;"><div style="font-size:11px;font-weight:700;color:#facc15;margin-bottom:4px;">📋 TODAY - ${today} (${todayT.length} tasks)</div>${todayT.slice(0,3).map(t=>`<div style="font-size:11px;color:#9ca3af;">${t.type==="spray"?"🧪":"🌱"} ${t.pivot} - ${t.product.substring(0,35)}${t.product.length>35?"...":""}</div>`).join("")}${todayT.length>3?`<div style="font-size:10px;color:#6b7280;">+${todayT.length-3} more</div>`:""}</div>`:"";
+  const cards=S.pivots.map(p=>{
+    const pr=cp(p);const pct=pr?pr.pct:0;const ha=HA[p.id]||0;const dap=gdap(p.id);
+    const lk=gsl(p.id);const fw=gfw(p.id);const col=sc(p,pr);const lbl=sl(p,pr);
+    const mmA=pr?pr.mmNow.toFixed(1):"0.0";const fin=pr&&pct<100?ft(pr.finish):"--";
+    const bd=lk?"#7f1d1d":fw?"#854d0e":p.active?(pct>=95?"#facc15":"#2d5a3d"):"#1e3a2f";
+    const badge=lk?`<span style="background:#7f1d1d;color:#f87171;font-size:8px;border-radius:3px;padding:1px 4px;">LOCK</span>`:fw?`<span style="background:#854d0e;color:#facc15;font-size:8px;border-radius:3px;padding:1px 4px;">FERT</span>`:"";
+    return`<div class="pcard" style="border-color:${bd};" onclick="openPivot('${p.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+        <div><div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;"><span style="font-size:16px;font-weight:900;color:#e5e7eb;">${p.id}</span><span style="width:6px;height:6px;border-radius:50%;background:${col};flex-shrink:0;"></span>${badge}</div><div style="font-size:9px;color:#6b7280;">${ha}ha · DAP${dap!==null?dap:"?"}</div><div style="font-size:9px;color:${col};font-weight:600;">${lbl}</div></div>
+        <div style="text-align:right;"><div style="font-size:22px;font-weight:900;color:${col};line-height:1;">${pct.toFixed(0)}%</div><div style="font-size:8px;color:#6b7280;">Complete</div>${p.active?`<div style="font-size:9px;color:#9ca3af;">${p.speed}% spd</div>`:""}</div>
+      </div>
+      ${dc(p.id,pct,p.mode,54,p.active,!!lk)}
+      ${p.active?`<div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;margin-top:4px;"><div style="font-size:9px;color:#6b7280;">Finish: <span style="color:#e5e7eb;">${fin}</span></div><div style="font-size:9px;color:#6b7280;">mm: <span style="color:#4ade80;">${mmA}</span></div><div style="font-size:9px;color:#6b7280;">Started: <span style="color:#9ca3af;">${fdt(p.startTime)}</span></div><div style="font-size:9px;color:#6b7280;">Mode: <span style="color:#e5e7eb;">${MA[p.mode]||p.mode}</span></div></div>`:`<div style="font-size:9px;color:#374151;text-align:center;margin-top:3px;">Tap to start</div>`}
+    </div>`;
+  }).join("");
+  document.getElementById("pg-dashboard").innerHTML=`
+    <div style="background:#0a1a10;border:1px solid #1e3a2f;border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:900;color:#4ade80;letter-spacing:1px;margin-bottom:8px;">🌿 MULLER FARM · WAKA WAKA · ${THA} ha</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+        <div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:#4ade80;">${active.length}</div><div style="font-size:8px;color:#6b7280;text-transform:uppercase;">Running</div></div>
+        <div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:#60a5fa;">${activeHa}</div><div style="font-size:8px;color:#6b7280;text-transform:uppercase;">Active ha</div></div>
+        <div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:#facc15;">${active.reduce((s,p)=>{const pr=cp(p);return s+(pr?pr.mmNow:0);},0).toFixed(1)}</div><div style="font-size:8px;color:#6b7280;text-transform:uppercase;">mm avg</div></div>
+        <div style="text-align:center;cursor:pointer;" onclick="showPage('planner')"><div style="font-size:18px;font-weight:800;color:#fb923c;">${todayT.length}</div><div style="font-size:8px;color:#6b7280;text-transform:uppercase;">Tasks</div></div>
+      </div>
+    </div>
+    ${upBanner}${todayBanner}
+    <div style="font-size:10px;color:#4ade80;text-transform:uppercase;letter-spacing:2px;margin-bottom:10px;">All Pivots</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${cards}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// MAP
+// ═══════════════════════════════════════════════════════
+function rMap(){
+  const pg=document.getElementById("pg-map");
+  // Build pin info from saved locations
+  const pins=S.pivots.filter(p=>p.mapPin);
+  const pinInfo=pins.length?pins.map(p=>{
+    const pr=cp(p);const pct=pr?pr.pct.toFixed(0):0;
+    return`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #1e3a2f;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="width:10px;height:10px;border-radius:50%;background:${p.active?'#4ade80':'#6b7280'};display:inline-block;"></span>
+        <span style="font-weight:700;color:#e5e7eb;">${p.id}</span>
+        <span style="font-size:11px;color:#6b7280;">${p.active?pct+'% complete':'Idle'}</span>
+      </div>
+      <div style="font-size:11px;color:#9ca3af;">${p.mapPin.lat.toFixed(5)}, ${p.mapPin.lng.toFixed(5)}</div>
+    </div>`;
+  }).join(''):`<div style="color:#6b7280;text-align:center;padding:16px;font-size:13px;">No pivots pinned yet.<br>Use Google Maps below to find your farm,<br>then enter coordinates manually.</div>`;
+
+  pg.innerHTML=`
+    <div style="padding:12px 16px;background:#0a1a10;border-bottom:1px solid #1e3a2f;">
+      <div style="font-size:12px;font-weight:700;color:#4ade80;margin-bottom:8px;">📍 Pinned Pivots (${pins.length}/13)</div>
+      ${pinInfo}
+    </div>
+    <div style="padding:12px 16px;background:#0a1a10;border-bottom:1px solid #1e3a2f;">
+      <div style="font-size:12px;color:#6b7280;margin-bottom:8px;">Pin a pivot manually — find coordinates in Google Maps:</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
+        <select id="mp_pivot" class="if">${PN.map(p=>`<option value="${p}">${p}</option>`).join('')}</select>
+        <input type="text" id="mp_lat" class="ib" placeholder="Latitude e.g. -25.4821" style="margin:0;"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;">
+        <input type="text" id="mp_lng" class="ib" placeholder="Longitude e.g. 30.4512" style="margin:0;"/>
+        <button onclick="savePinManual()" style="background:#4ade80;border:none;border-radius:8px;color:#070f09;font-weight:700;font-size:12px;">📍 Pin It</button>
+      </div>
+      <div style="font-size:11px;color:#6b7280;">💡 Open Google Maps → find your pivot center → long press → copy coordinates</div>
+    </div>
+    <div style="padding:8px 16px;background:#0a1a10;border-bottom:1px solid #1e3a2f;display:flex;gap:8px;align-items:center;">
+      <div style="font-size:12px;color:#4ade80;font-weight:700;">🗺 Open Google Maps to find coordinates:</div>
+    </div>
+    <iframe 
+      src="https://maps.google.com/maps?q=-25.5,30.5&z=13&output=embed&t=k" 
+      style="width:100%;height:calc(100vh - 420px);border:none;"
+      loading="lazy"
+      referrerpolicy="no-referrer-when-downgrade">
+    </iframe>`;
+}
+
+function savePinManual(){
+  const pid=document.getElementById("mp_pivot").value;
+  const lat=parseFloat(document.getElementById("mp_lat").value);
+  const lng=parseFloat(document.getElementById("mp_lng").value);
+  if(isNaN(lat)||isNaN(lng)){alert("Enter valid coordinates");return;}
+  S.pivots=S.pivots.map(p=>p.id===pid?{...p,mapPin:{lat,lng}}:p);
+  save();rMap();
+  alert("✅ "+pid+" pinned at "+lat.toFixed(4)+", "+lng.toFixed(4));
+}
+
+
+function savePin(lat,lng){
+  const pid=document.getElementById("pin_p").value;
+  S.pivots=S.pivots.map(p=>p.id===pid?{...p,mapPin:{lat,lng}}:p);
+  save();closeModal();updMapMarkers();
+}
+
+// ═══════════════════════════════════════════════════════
+// DETAIL PAGE
+// ═══════════════════════════════════════════════════════
+function rDetail(){
+  const p=S.pivots.find(x=>x.id===S.selPivot);if(!p)return;
+  const pr=cp(p);const pct=pr?pr.pct:0;const lk=gsl(p.id);const fw=gfw(p.id);
+  const dap=gdap(p.id);const ha=HA[p.id]||0;
+  const tabs=[["irrigation","💧 Irrig"],["irrigHistory","📈 Hist"],["fertilizer","🌾 Fert"],["chemical","🧪 Chem"],["program","📋 Program"],["planting","🌱 Plant"]];
+  const tabBar=`<div class="tab-bar">${tabs.map(([t,l])=>`<button class="tab-btn${S.detailTab===t?" on":""}" onclick="S.detailTab='${t}';rDetail();">${l}</button>`).join("")}</div>`;
+  let body="";
+  if(S.detailTab==="irrigation"){
+    const mmA=pr?pr.mmNow.toFixed(1):"0.0";
+    const m3=pr?((pr.mmNow*(ha*10))).toFixed(0):"0";
+    const startStr=p.startTime?fdt(p.startTime):"--";
+    const stopStr=p.stopTime?fdt(p.stopTime):"--";
+    if(p.active&&pr){
+      body=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div class="detail-stat"><div style="font-size:16px;font-weight:700;color:#4ade80;">${pct.toFixed(1)}%</div><div style="font-size:10px;color:#6b7280;text-transform:uppercase;">Progress</div></div>
+        <div class="detail-stat"><div style="font-size:16px;font-weight:700;color:#4ade80;">${p.speed}%</div><div style="font-size:10px;color:#6b7280;text-transform:uppercase;">Speed</div></div>
+        <div class="detail-stat"><div style="font-size:16px;font-weight:700;color:#4ade80;">${pr.el.toFixed(1)} hrs</div><div style="font-size:10px;color:#6b7280;text-transform:uppercase;">Elapsed</div></div>
+        <div class="detail-stat"><div style="font-size:16px;font-weight:700;color:#4ade80;">${pr.rem.toFixed(1)} hrs</div><div style="font-size:10px;color:#6b7280;text-transform:uppercase;">Remaining</div></div>
+        <div class="detail-stat"><div style="font-size:16px;font-weight:700;color:#4ade80;">${pr.totalHrs.toFixed(1)} hrs</div><div style="font-size:10px;color:#6b7280;text-transform:uppercase;">Total Runtime</div></div>
+        <div class="detail-stat"><div style="font-size:16px;font-weight:700;color:#4ade80;">${mmA} mm</div><div style="font-size:10px;color:#6b7280;text-transform:uppercase;">mm Applied</div></div>
+        <div class="detail-stat"><div style="font-size:16px;font-weight:700;color:#4ade80;">${m3} m³</div><div style="font-size:10px;color:#6b7280;text-transform:uppercase;">Total Water</div></div>
+        <div class="detail-stat"><div style="font-size:16px;font-weight:700;color:#4ade80;">${ft(pr.finish)}</div><div style="font-size:10px;color:#6b7280;text-transform:uppercase;">Est. Finish</div></div>
+      </div>
+      <div class="card" style="margin-bottom:12px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+          <div><div style="font-size:10px;color:#6b7280;">Started</div><div style="font-size:12px;color:#4ade80;font-weight:700;">${startStr}</div></div>
+          <div><div style="font-size:10px;color:#6b7280;">Est. Stop</div><div style="font-size:12px;color:#facc15;font-weight:700;">${ft(pr.finish)}</div></div>
+        </div>
+      </div>
+      <button class="btn btn-red" onclick="doStop('${p.id}')">■ Stop Irrigation</button>
+      <button class="btn btn-blue" onclick="openPreSched('${p.id}')">🕐 Schedule Future Irrigation (${S.preScheduled.filter(x=>x.pivot===p.id).length})</button>`;
+    } else {
+      const s=sdg(p.id,p.speed)||{mm:0,hrs:0};
+      const lastStop=p.stopTime?`<div class="card" style="margin-bottom:12px;"><div style="font-size:10px;color:#6b7280;margin-bottom:4px;">Last Irrigation</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"><div><div style="font-size:10px;color:#6b7280;">Started</div><div style="font-size:12px;color:#9ca3af;">${fdt(p.startTime)}</div></div><div><div style="font-size:10px;color:#6b7280;">Stopped</div><div style="font-size:12px;color:#9ca3af;">${fdt(p.stopTime)}</div></div></div></div>`:"";
+      body=`${lastStop}<div class="card" style="text-align:center;padding:20px;margin-bottom:12px;"><div style="font-size:13px;color:#6b7280;">Pivot is idle</div></div>
+      <button class="btn btn-green" onclick="openStartModal('${p.id}')">▶ Start Irrigation</button>
+      <button class="btn btn-blue" onclick="openPreSched('${p.id}')">🕐 Schedule Future Irrigation (${S.preScheduled.filter(x=>x.pivot===p.id).length})</button>`;
+    }
+    if(lk)body=`<div style="background:#1a0a0a;border:1px solid #7f1d1d;border-radius:10px;padding:10px;margin-bottom:12px;">🔒 Spray lockout: ${lk.h} hrs remaining</div>`+body;
+    if(fw)body=`<div style="background:#1a0f00;border:1px solid #854d0e;border-radius:10px;padding:10px;margin-bottom:12px;">💧 Fertilizer needs irrigation on ${fw.side||"Full Circle"}</div>`+body;
+  }
+  else if(S.detailTab==="irrigHistory"){
+    const hist=(S.irrigHistory[p.id]||[]);
+    const totalRuns=hist.length;
+    const totalMm=hist.reduce((s,h)=>s+Math.max(0,parseFloat(h.mmApplied||0)),0).toFixed(1);
+    const totalM3=hist.reduce((s,h)=>s+Math.max(0,parseFloat(h.m3||0)),0).toFixed(0);
+    const seasons=[...new Set(hist.map(h=>h.season))];
+    const rows=seasons.map(season=>{
+      const runs=hist.filter(h=>h.season===season);
+      const sTotal=runs.reduce((s,h)=>s+Math.max(0,parseFloat(h.mmApplied||0)),0).toFixed(1);
+      return`<div style="margin-bottom:12px;"><div style="font-size:11px;color:#a78bfa;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">${season} — ${runs.length} runs · ${sTotal} mm</div>${runs.map(h=>`<div class="card" style="margin-bottom:6px;"><div style="display:flex;justify-content:space-between;"><div style="font-size:12px;font-weight:700;color:#4ade80;">${fdt(h.startTime||h.stopTime)}</div><div style="font-size:11px;color:#6b7280;">${h.mmApplied} mm · ${h.m3} m³</div></div><div style="font-size:11px;color:#9ca3af;">${h.mode} · ${h.speed}% · ${h.pctComplete}% complete</div><div style="font-size:10px;color:#6b7280;">${fdt(h.startTime)} → ${fdt(h.stopTime)}</div></div>`).join("")}</div>`;
+    }).join("");
+    body=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+      <div style="background:#0d2018;border-radius:10px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#4ade80;">${totalRuns}</div><div style="font-size:10px;color:#9ca3af;">Runs</div></div>
+      <div style="background:#0a1a10;border-radius:10px;padding:10px;text-align:center;"><div style="font-size:16px;font-weight:800;color:#60a5fa;">${totalMm}</div><div style="font-size:10px;color:#9ca3af;">mm Total</div></div>
+      <div style="background:#0a1a10;border-radius:10px;padding:10px;text-align:center;"><div style="font-size:16px;font-weight:800;color:#a78bfa;">${totalM3}</div><div style="font-size:10px;color:#9ca3af;">m³ Total</div></div>
+    </div>${hist.length?rows:`<div style="color:#6b7280;text-align:center;padding:24px;">No irrigation history yet.<br><span style="font-size:12px;">Runs are logged when you stop irrigation.</span></div>`}`;
+  }
+  else if(S.detailTab==="fertilizer"){
+    const recs=S.fertRecs.filter(r=>r.pivot===p.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const rows=recs.length?recs.map(r=>`<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div style="flex:1;"><div style="font-size:12px;font-weight:700;color:#facc15;">${r.product}</div><div style="font-size:11px;color:#9ca3af;">${r.rate} kg/ha · ${r.side}</div>${r.note?`<div style="font-size:11px;color:#6b7280;">📝 ${r.note}</div>`:""}</div><div style="text-align:right;"><div style="font-size:10px;color:#6b7280;">${fd(r.date)}</div>${r.operator?`<div style="font-size:10px;color:#6b7280;">${r.operator}</div>`:""}</div></div>${r.needsIrrigation&&!r.irrigated?`<div style="font-size:10px;color:#fb923c;margin-top:4px;">💧 Needs ${r.side} irrigation 8-10mm</div>`:""}</div>`).join(""):`<div style="color:#6b7280;text-align:center;padding:24px;">No fertilizer records for ${p.id}</div>`;
+    body=`<button class="btn btn-yellow" onclick="openFertModal('${p.id}')">+ Add Fertilizer Record</button>${rows}`;
+  }
+  else if(S.detailTab==="chemical"){
+    const recs=S.chemRecs.filter(r=>r.pivot===p.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const rows=recs.length?recs.map(r=>{const active=r.sprayTime&&(Date.now()-new Date(r.sprayTime).getTime())/3600000<24;return`<div class="card" style="border-color:${active?"#7f1d1d":"#1e3a2f"};"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div style="flex:1;"><div style="font-size:12px;font-weight:700;color:#f87171;">${r.product}</div><div style="font-size:11px;color:#9ca3af;">${r.type||"Spray"} · ${r.rate} · ${r.side}</div>${r.note?`<div style="font-size:11px;color:#6b7280;">📝 ${r.note}</div>`:""}</div><div style="text-align:right;"><div style="font-size:10px;color:#6b7280;">${fd(r.date)}</div>${r.operator?`<div style="font-size:10px;color:#6b7280;">${r.operator}</div>`:""}</div></div>${active?`<div style="font-size:10px;color:#f87171;margin-top:4px;">🔒 Lockout active</div>`:""}</div>`;}).join(""):`<div style="color:#6b7280;text-align:center;padding:24px;">No chemical records for ${p.id}</div>`;
+    body=`<button class="btn btn-red" onclick="openChemModal('${p.id}')">+ Add Chemical Record</button>${rows}`;
+  }
+  else if(S.detailTab==="program"){
+    const tasks=S.schedule.filter(t=>t.pivot===p.id).sort((a,b)=>DAYS.indexOf(a.day)-DAYS.indexOf(b.day));
+    const upcoming=tasks.filter(t=>!t.done);const done=tasks.filter(t=>t.done);
+    const tc=(t)=>`<div class="card" style="border-left:3px solid ${t.type==="spray"?"#60a5fa":"#facc15"};opacity:${t.done?0.55:1};margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div style="flex:1;"><div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;"><span style="font-size:13px;">${t.type==="spray"?"🧪":"🌱"}</span><span style="font-weight:700;color:${t.type==="spray"?"#60a5fa":"#facc15"};font-size:12px;">${t.day}</span><span style="font-size:9px;color:#6b7280;">${MA[t.side]||t.side}</span>${t.done?'<span style="font-size:10px;color:#4ade80;">✓</span>':""}</div><div style="font-size:11px;color:#e5e7eb;">${t.product}</div>${t.note?`<div style="font-size:10px;color:#9ca3af;">📝 ${t.note}</div>`:""}</div>
+        <div style="display:flex;flex-direction:column;gap:3px;"><button onclick="toggleDone('${t.id}');rDetail();" style="background:${t.done?"#2d5a3d":"#0a1a10"};border:1px solid ${t.done?"#4ade80":"#1e3a2f"};color:${t.done?"#4ade80":"#6b7280"};border-radius:6px;padding:4px 8px;font-size:10px;">${t.done?"✓":"Done"}</button><button onclick="openSchedModal('${t.id}')" style="background:#0a1a10;border:1px solid #1e3a2f;color:#a78bfa;border-radius:6px;padding:3px 7px;font-size:10px;">✏️</button></div>
+      </div>
+    </div>`;
+    body=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+      <div style="background:#1e3a5f;border-radius:10px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#60a5fa;">${tasks.filter(t=>t.type==="spray").length}</div><div style="font-size:10px;color:#9ca3af;">Sprays</div></div>
+      <div style="background:#2d2000;border-radius:10px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#facc15;">${tasks.filter(t=>t.type==="spread").length}</div><div style="font-size:10px;color:#9ca3af;">Spreads</div></div>
+      <div style="background:#0d2018;border-radius:10px;padding:10px;text-align:center;"><div style="font-size:20px;font-weight:800;color:#4ade80;">${done.length}</div><div style="font-size:10px;color:#9ca3af;">Done</div></div>
+    </div>
+    <div style="font-size:10px;color:#4ade80;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">Upcoming (${upcoming.length})</div>
+    ${upcoming.length?upcoming.map(tc).join(""):`<div style="color:#6b7280;text-align:center;padding:12px;">No upcoming tasks for ${p.id}</div>`}
+    ${done.length?`<div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin:10px 0 6px;">Completed</div>${done.map(tc).join("")}`:""}
+    <button class="btn btn-purple" onclick="openAddSchedModal('${p.id}')">+ Add Task for ${p.id}</button>`;
+  }
+  else if(S.detailTab==="planting"){
+    const plantD=PD[p.id];const dap2=gdap(p.id);
+    const ph=(S.plantingHistory[p.id]||[]);
+    body=`<div class="card" style="margin-bottom:12px;">
+      <div style="font-size:13px;font-weight:700;color:#4ade80;margin-bottom:8px;">🌱 Current Crop</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div><div style="font-size:10px;color:#6b7280;">Planting Date</div><div style="font-size:14px;font-weight:700;color:#e5e7eb;">${fd(plantD)}</div></div>
+        <div><div style="font-size:10px;color:#6b7280;">DAP</div><div style="font-size:24px;font-weight:900;color:#4ade80;">${dap2!==null?dap2:"—"}</div></div>
+      </div>
+      ${p.id==="P4"?`<div style="font-size:11px;color:#fb923c;margin-top:6px;">⚠ P4 Top planted 06 May · Bottom planted 29 May</div>`:""}
+    </div>
+    <button class="btn btn-green" onclick="openSetPlantDate('${p.id}')">📅 Set / Change Planting Date</button>
+    <button class="btn btn-orange" onclick="openResetDap('${p.id}')">🔄 Reset DAP (New Crop)</button>
+    ${ph.length?`<div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:1px;margin:12px 0 6px;">Planting History</div>${ph.map(h=>`<div class="card"><div style="font-size:12px;color:#9ca3af;">${fd(h.plantedAt)} → ${h.resetAt?fd(h.resetAt):"current"}</div>${h.notes?`<div style="font-size:11px;color:#6b7280;">${h.notes}</div>`:""}</div>`).join("")}`:""}`;
+  }
+  document.getElementById("pg-detail").innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+      ${dc(p.id,pct,p.mode,80,p.active,!!lk)}
+      <div>
+        <div style="font-size:28px;font-weight:900;color:#e5e7eb;">${p.id}</div>
+        <div style="font-size:14px;font-weight:700;color:#60a5fa;">${ha} hectares</div>
+        <div style="font-size:12px;color:#a78bfa;">DAP ${dap!==null?dap:"?"} · ${dap!==null?fd(PD[p.id]):"No planting date"}</div>
+        <div style="font-size:12px;color:${p.active?"#4ade80":"#6b7280"};">● ${p.active?`Active · ${MA[p.mode]||p.mode} · ${p.speed}%`:"Idle"}</div>
+      </div>
+    </div>
+    ${tabBar}
+    ${body}`;
+}
+
+// ═══════════════════════════════════════════════════════
+// START / STOP IRRIGATION
+// ═══════════════════════════════════════════════════════
+function openStartModal(pivotId){
+  const now=new Date();
+  S.pendingStart={pivotId,mode:"Full Circle",speed:50,startTime:now.toISOString().slice(0,16)};
+  showStartModal();
+}
+function openStartFromTable(pivotId,speed){
+  const now=new Date();
+  S.pendingStart={pivotId,mode:"Full Circle",speed,startTime:now.toISOString().slice(0,16)};
+  showStartModal();
+}
+function showStartModal(){
+  const f=S.pendingStart;if(!f)return;
+  const s=sdg(f.pivotId,f.speed)||{mm:0,hrs:0};
+  const frac=MF[f.mode]||1;
+  const totalHrs=(s.hrs*frac).toFixed(1);
+  const totalMm=s.mm.toFixed(1);
+  const pivOpts=PN.map(p=>`<option value="${p}"${p===f.pivotId?" selected":""}>${p}</option>`).join("");
+  const spdOpts=SP.map(s=>`<option value="${s}"${s===f.speed?" selected":""}>${s}%</option>`).join("");
+  const modeOpts=AM.map(m=>`<option value="${m}"${m===f.mode?" selected":""}>${m}</option>`).join("");
+  document.getElementById("modalContent").innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div style="font-size:18px;font-weight:800;color:#e5e7eb;">▶ Start Irrigation</div><button onclick="closeModal()" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;">✕</button></div>
+    <div class="card" style="margin-bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:#4ade80;">${totalMm} mm</div><div style="font-size:10px;color:#6b7280;">mm / rev</div></div>
+      <div style="text-align:center;"><div style="font-size:18px;font-weight:800;color:#60a5fa;">${totalHrs} hrs</div><div style="font-size:10px;color:#6b7280;">total runtime</div></div>
+    </div>
+    <div class="il">Pivot</div><select class="if" onchange="S.pendingStart.pivotId=this.value;showStartModal();">${pivOpts}</select>
+    <div class="il">Speed</div><select class="if" onchange="S.pendingStart.speed=parseInt(this.value);showStartModal();">${spdOpts}</select>
+    <div class="il">Mode</div><select class="if" onchange="S.pendingStart.mode=this.value;showStartModal();">${modeOpts}</select>
+    <div class="il">Start Date & Time</div><input type="datetime-local" class="ib" value="${f.startTime}" onchange="S.pendingStart.startTime=this.value;"/>
+    <button class="btn btn-green" onclick="doStart()">▶ Start Now</button>`;
+  document.getElementById("mainModal").classList.add("open");
+}
+function doStart(){
+  const f=S.pendingStart;if(!f)return;
+  S.pivots=S.pivots.map(p=>p.id===f.pivotId?{...p,active:true,startTime:f.startTime,stopTime:null,speed:f.speed,mode:f.mode}:p);
+  lh(f.pivotId,"Irrigation Started",`${f.mode} · ${f.speed}% · ${fdt(f.startTime)}`);
+  closeModal();save();
+  if(S.page==="detail")rDetail();
+  rDash();
+}
+function doStop(id){
+  const p=S.pivots.find(x=>x.id===id);
+  if(!p)return;
+  const pr=cp(p);
+  // Save to irrigation history — use FULL mm/rev value, only time is fractional
+  if(pr&&pr.pct>0&&pr.mmNow>0&&pr.el>0){
+    if(!S.irrigHistory[id])S.irrigHistory[id]=[];
+    const ha=HA[id]||0;
+    const mmApp=Math.max(0,pr.mmNow).toFixed(1);
+    const m3=Math.max(0,pr.mmNow*ha*10).toFixed(0);
+    const nowISO=new Date().toISOString();
+    S.irrigHistory[id].unshift({
+      id:"ih"+Date.now(),
+      startTime:p.startTime,
+      stopTime:nowISO,
+      mode:p.mode,speed:p.speed,
+      mmApplied:mmApp,m3,
+      pctComplete:pr.pct.toFixed(1),
+      season:getSeason()
+    });
+  }
+  lh(id,"Irrigation Stopped",`${p.mode} · ${p.speed}% · ${pr?pr.pct.toFixed(1)+"% complete":"stopped"}`);
+  S.pivots=S.pivots.map(x=>x.id===id?{...x,active:false,stopTime:new Date().toISOString()}:x);
+  save();
+  if(S.page==="detail")rDetail();
+  rDash();
+}
+
+// ═══════════════════════════════════════════════════════
+// FERTILIZER MODAL
+// ═══════════════════════════════════════════════════════
+function openFertModal(pivotId){
+  const sideOpts=AM.map(s=>`<option value="${s}">${s}</option>`).join("");
+  document.getElementById("modalContent").innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div style="font-size:18px;font-weight:800;color:#e5e7eb;">🌾 Add Fertilizer</div><button onclick="closeModal()" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;">✕</button></div>
+    <div class="il">Pivot</div><select class="if" id="f_pivot">${PN.map(p=>`<option value="${p}"${p===pivotId?" selected":""}>${p}</option>`).join("")}</select>
+    <div class="il">Product / Fertilizer Name</div><input type="text" class="ib" id="f_prod" placeholder="e.g. NPK 34"/>
+    <div class="il">Rate (kg/ha)</div><input type="number" class="ib" id="f_rate" placeholder="200"/>
+    <div class="il">Total Applied (kg)</div><input type="number" class="ib" id="f_total" placeholder="Optional"/>
+    <div class="il">Side / Mode</div><select class="if" id="f_side">${sideOpts}</select>
+    <div class="il">Date Applied</div><input type="date" class="ib" id="f_date" value="${new Date().toISOString().slice(0,10)}"/>
+    <div class="il">Operator</div><input type="text" class="ib" id="f_op" placeholder="Name (optional)"/>
+    <div class="il">Notes</div><input type="text" class="ib" id="f_note" placeholder="Optional notes"/>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;"><input type="checkbox" id="f_irrig" style="width:18px;height:18px;"><label style="font-size:13px;color:#e5e7eb;">Needs irrigation after (8-10mm)</label></div>
+    <button class="btn btn-yellow" onclick="saveFert()">Save Fertilizer Record</button>`;
+  document.getElementById("mainModal").classList.add("open");
+}
+function saveFert(){
+  const pivot=document.getElementById("f_pivot").value;
+  const product=document.getElementById("f_prod").value.trim();
+  if(!product){alert("Enter product name");return;}
+  const rec={id:"f"+Date.now(),pivot,product,rate:document.getElementById("f_rate").value,total:document.getElementById("f_total").value,side:document.getElementById("f_side").value,date:document.getElementById("f_date").value,operator:document.getElementById("f_op").value,note:document.getElementById("f_note").value,needsIrrigation:document.getElementById("f_irrig").checked,irrigated:false};
+  S.fertRecs.unshift(rec);
+  lh(pivot,"Fertilizer Applied",`${product} · ${rec.rate}kg/ha · ${rec.side}`);
+  closeModal();save();
+  if(S.page==="detail")rDetail();
+  if(S.page==="records")rRecs();
+}
+
+// ═══════════════════════════════════════════════════════
+// CHEMICAL MODAL
+// ═══════════════════════════════════════════════════════
+function openChemModal(pivotId){
+  const sideOpts=AM.map(s=>`<option value="${s}">${s}</option>`).join("");
+  document.getElementById("modalContent").innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div style="font-size:18px;font-weight:800;color:#e5e7eb;">🧪 Add Chemical</div><button onclick="closeModal()" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;">✕</button></div>
+    <div class="il">Pivot</div><select class="if" id="c_pivot">${PN.map(p=>`<option value="${p}"${p===pivotId?" selected":""}>${p}</option>`).join("")}</select>
+    <div class="il">Product / Chemical Name</div><input type="text" class="ib" id="c_prod" placeholder="e.g. Fungi 1"/>
+    <div class="il">Type</div><select class="if" id="c_type"><option>Herbicide</option><option>Fungicide</option><option>Insecticide</option><option>Foliar</option><option>Growth Regulator</option><option>Other</option></select>
+    <div class="il">Rate / Mix</div><input type="text" class="ib" id="c_rate" placeholder="e.g. 0.2L/ha"/>
+    <div class="il">Side / Mode</div><select class="if" id="c_side">${sideOpts}</select>
+    <div class="il">Spray Date & Time</div><input type="datetime-local" class="ib" id="c_time" value="${new Date().toISOString().slice(0,16)}"/>
+    <div class="il">Operator</div><input type="text" class="ib" id="c_op" placeholder="Name (optional)"/>
+    <div class="il">Notes</div><input type="text" class="ib" id="c_note" placeholder="Optional notes"/>
+    <button class="btn btn-red" onclick="saveChem()">Save Chemical Record</button>`;
+  document.getElementById("mainModal").classList.add("open");
+}
+function saveChem(){
+  const pivot=document.getElementById("c_pivot").value;
+  const product=document.getElementById("c_prod").value.trim();
+  if(!product){alert("Enter product name");return;}
+  const sprayTime=document.getElementById("c_time").value;
+  const rec={id:"ch"+Date.now(),pivot,product,type:document.getElementById("c_type").value,rate:document.getElementById("c_rate").value,side:document.getElementById("c_side").value,date:sprayTime.slice(0,10),sprayTime,operator:document.getElementById("c_op").value,note:document.getElementById("c_note").value};
+  S.chemRecs.unshift(rec);
+  lh(pivot,"Chemical Applied",`${product} · ${rec.type} · ${rec.side}`);
+  closeModal();save();
+  if(S.page==="detail")rDetail();
+  if(S.page==="records")rRecs();
+}
+
+// ═══════════════════════════════════════════════════════
+// SCHEDULE MODAL (Planner tasks)
+// ═══════════════════════════════════════════════════════
+function openAddSchedModal(pivotId,day){
+  const dayOpts=DAYS.map(d=>`<option value="${d}"${d===day?" selected":""}>${d}</option>`).join("");
+  const sideOpts=AM.map(s=>`<option value="${s}">${s}</option>`).join("");
+  document.getElementById("modalContent").innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div style="font-size:18px;font-weight:800;color:#e5e7eb;">+ Add Task</div><button onclick="closeModal()" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;">✕</button></div>
+    <div class="il">Pivot</div><select class="if" id="sc_pivot">${PN.map(p=>`<option value="${p}"${p===pivotId?" selected":""}>${p}</option>`).join("")}</select>
+    <div class="il">Day</div><select class="if" id="sc_day">${dayOpts}</select>
+    <div class="il">Type</div><select class="if" id="sc_type"><option value="spray">Spray</option><option value="spread">Spread (Fertilizer)</option></select>
+    <div class="il">Product / Description</div><input type="text" class="ib" id="sc_prod" placeholder="Product name"/>
+    <div class="il">Side / Mode</div><select class="if" id="sc_side">${sideOpts}</select>
+    <div class="il">Notes</div><input type="text" class="ib" id="sc_note" placeholder="Optional"/>
+    <button class="btn btn-purple" onclick="saveSched(null)">Add Task</button>`;
+  document.getElementById("mainModal").classList.add("open");
+}
+function openSchedModal(taskId){
+  const ex=S.schedule.find(t=>t.id===taskId);if(!ex)return;
+  const dayOpts=DAYS.map(d=>`<option value="${d}"${d===ex.day?" selected":""}>${d}</option>`).join("");
+  const sideOpts=AM.map(s=>`<option value="${s}"${s===ex.side?" selected":""}>${s}</option>`).join("");
+  document.getElementById("modalContent").innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div style="font-size:18px;font-weight:800;color:#e5e7eb;">✏️ Edit Task</div><button onclick="closeModal()" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;">✕</button></div>
+    <div class="il">Pivot</div><select class="if" id="sc_pivot">${PN.map(p=>`<option value="${p}"${p===ex.pivot?" selected":""}>${p}</option>`).join("")}</select>
+    <div class="il">Day</div><select class="if" id="sc_day">${dayOpts}</select>
+    <div class="il">Type</div><select class="if" id="sc_type"><option value="spray"${ex.type==="spray"?" selected":""}>Spray</option><option value="spread"${ex.type==="spread"?" selected":""}>Spread (Fertilizer)</option></select>
+    <div class="il">Product / Description</div><input type="text" class="ib" id="sc_prod" value="${ex.product||""}"/>
+    <div class="il">Side / Mode</div><select class="if" id="sc_side">${sideOpts}</select>
+    <div class="il">Notes</div><input type="text" class="ib" id="sc_note" value="${ex.note||""}"/>
+    <button class="btn btn-purple" onclick="saveSched('${taskId}')">Save Changes</button>
+    <button class="btn btn-red" onclick="deleteTask('${taskId}')">🗑 Delete Task</button>`;
+  document.getElementById("mainModal").classList.add("open");
+}
+function saveSched(taskId){
+  const pivot=document.getElementById("sc_pivot").value;
+  const day=document.getElementById("sc_day").value;
+  const type=document.getElementById("sc_type").value;
+  const product=document.getElementById("sc_prod").value.trim();
+  const side=document.getElementById("sc_side").value;
+  const note=document.getElementById("sc_note").value;
+  if(!product){alert("Enter product/description");return;}
+  if(taskId){
+    S.schedule=S.schedule.map(t=>t.id===taskId?{...t,pivot,day,type,product,side,note}:t);
+  } else {
+    S.schedule.push({id:"s"+Date.now(),pivot,day,type,product,side,note,done:false});
+  }
+  closeModal();save();
+  if(S.page==="planner")rPlanner();
+  if(S.page==="detail")rDetail();
+  if(S.page==="calendar")rCal();
+}
+function deleteTask(taskId){
+  if(!confirm("Delete this task?"))return;
+  S.schedule=S.schedule.filter(t=>t.id!==taskId);
+  closeModal();save();
+  if(S.page==="planner")rPlanner();
+  if(S.page==="detail")rDetail();
+  if(S.page==="calendar")rCal();
+}
+function toggleDone(taskId){
+  S.schedule=S.schedule.map(t=>t.id===taskId?{...t,done:!t.done}:t);
+  save();
+  if(S.page==="planner")rPlanner();
+  if(S.page==="calendar")rCal();
+}
+
+// ═══════════════════════════════════════════════════════
+// RECORDS PAGE
+// ═══════════════════════════════════════════════════════
+function rRecs(){
+  const tabs=[["fert","🌾 Fertilizer"],["chem","🧪 Chemical"]];
+  const tabBar=`<div class="tab-bar">${tabs.map(([t,l])=>`<button class="tab-btn${S.recTab===t?" on":""}" onclick="S.recTab='${t}';rRecs();">${l}</button>`).join("")}</div>`;
+  let body="";
+  if(S.recTab==="fert"){
+    const recs=[...S.fertRecs].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    body=`<button class="btn btn-yellow" onclick="openFertModal(S.selPivot||'P0')">+ Add Fertilizer Record</button>${recs.length?recs.map(r=>`<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div style="flex:1;"><div style="display:flex;align-items:center;gap:6px;"><span style="font-size:12px;font-weight:700;color:#facc15;">${r.product}</span><span style="background:#2d2000;color:#facc15;font-size:9px;border-radius:4px;padding:1px 5px;">${r.pivot}</span></div><div style="font-size:11px;color:#9ca3af;">${r.rate} kg/ha · ${MA[r.side]||r.side}</div>${r.note?`<div style="font-size:11px;color:#6b7280;">📝 ${r.note}</div>`:""}</div><div style="text-align:right;"><div style="font-size:10px;color:#6b7280;">${fd(r.date)}</div>${r.operator?`<div style="font-size:10px;color:#6b7280;">${r.operator}</div>`:""}</div></div>${r.needsIrrigation&&!r.irrigated?`<div style="font-size:10px;color:#fb923c;margin-top:4px;">💧 Needs irrigation</div>`:""}</div>`).join(""):`<div style="color:#6b7280;text-align:center;padding:24px;">No fertilizer records yet</div>`}`;
+  } else {
+    const recs=[...S.chemRecs].sort((a,b)=>new Date(b.date)-new Date(a.date));
+    body=`<button class="btn btn-red" onclick="openChemModal(S.selPivot||'P0')">+ Add Chemical Record</button>${recs.length?recs.map(r=>{const active=r.sprayTime&&(Date.now()-new Date(r.sprayTime).getTime())/3600000<24;return`<div class="card" style="border-color:${active?"#7f1d1d":"#1e3a2f"};"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div style="flex:1;"><div style="display:flex;align-items:center;gap:6px;"><span style="font-size:12px;font-weight:700;color:#f87171;">${r.product}</span><span style="background:#2d0000;color:#f87171;font-size:9px;border-radius:4px;padding:1px 5px;">${r.pivot}</span></div><div style="font-size:11px;color:#9ca3af;">${r.type} · ${r.rate} · ${MA[r.side]||r.side}</div>${r.note?`<div style="font-size:11px;color:#6b7280;">📝 ${r.note}</div>`:""}</div><div style="text-align:right;"><div style="font-size:10px;color:#6b7280;">${fdt(r.sprayTime)||fd(r.date)}</div>${r.operator?`<div style="font-size:10px;color:#6b7280;">${r.operator}</div>`:""}</div></div>${active?`<div style="font-size:10px;color:#f87171;margin-top:4px;">🔒 Lockout active</div>`:""}</div>`;}).join(""):`<div style="color:#6b7280;text-align:center;padding:24px;">No chemical records yet</div>`}`;
+  }
+  document.getElementById("pg-records").innerHTML=tabBar+body;
+}
+
+// ═══════════════════════════════════════════════════════
+// SPEED TABLES
+// ═══════════════════════════════════════════════════════
+function rTables(){
+  const tbl=ST[S.tblPivot]||{};
+  const pivBtns=PN.map(p=>`<button onclick="S.tblPivot='${p}';rTables();" style="flex:0 0 auto;padding:6px 12px;border-radius:8px;border:none;font-size:11px;font-weight:700;background:${S.tblPivot===p?"#4ade80":"#0f2318"};color:${S.tblPivot===p?"#070f09":"#9ca3af"};">${p}</button>`).join("");
+  const rows=SP.map((spd,i)=>{const d=tbl[spd];if(!d)return"";return`<div class="speed-row" style="background:${i%2===0?"#0f2318":"#0d1f14"};" onclick="openStartFromTable('${S.tblPivot}',${spd})"><div style="color:#e5e7eb;font-weight:${spd===100?700:400};">${spd}%</div><div style="color:#60a5fa;">${d.mm}</div><div style="color:#9ca3af;">${d.hrs}</div><div style="color:#4ade80;font-size:11px;">▶</div></div>`;}).join("");
+  document.getElementById("pg-tables").innerHTML=`
+    <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px;">${pivBtns}</div>
+    <div style="background:#0f2318;border:1px solid #1e3a2f;border-radius:12px;overflow:hidden;">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid #1e3a2f;">
+        <div style="font-size:14px;font-weight:800;color:#e5e7eb;">${S.tblPivot}</div>
+        <div style="font-size:12px;color:#60a5fa;">${HA[S.tblPivot]} ha</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 36px;padding:8px 16px;background:#0a1a10;">
+        ${["Speed","mm/rev","hrs/rev","▶"].map(h=>`<div style="font-size:10px;color:#4ade80;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;">${h}</div>`).join("")}
+      </div>
+      ${rows}
+    </div>
+    <div style="font-size:10px;color:#6b7280;text-align:center;margin-top:8px;">Tap any row to start irrigation at that speed</div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+// PLANNER
+// ═══════════════════════════════════════════════════════
+function rPlanner(){
+  const days=DAYS;
+  const dayGroups=days.map(day=>{
+    const tasks=S.schedule.filter(t=>t.day===day);
+    if(!tasks.length)return`<div style="font-size:11px;font-weight:700;color:#2d5a3d;text-transform:uppercase;letter-spacing:1px;margin:14px 0 4px;">${day}</div><div style="font-size:11px;color:#374151;padding:6px 0;">No tasks</div>`;
+    const cards=tasks.map(t=>`<div class="card" style="border-left:3px solid ${t.type==="spray"?"#60a5fa":"#facc15"};opacity:${t.done?0.5:1};margin-bottom:6px;">
+      <div style="display:flex;align-items:flex-start;gap:10px;">
+        <span style="font-size:18px;margin-top:2px;">${t.type==="spray"?"🧪":"🌱"}</span>
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;"><span style="font-weight:700;color:#60a5fa;font-size:13px;">${t.pivot}</span><span style="font-size:11px;color:#e5e7eb;">${t.product.substring(0,40)}${t.product.length>40?"...":""}</span></div>
+          <div style="font-size:11px;color:#6b7280;">${t.type==="spread"?"Spread":"Spray"} · ${MA[t.side]||t.side}</div>
+          ${t.note?`<div style="font-size:11px;color:#9ca3af;">📝 ${t.note}</div>`:""}
+          ${t.type==="spread"&&!t.done?`<div style="font-size:10px;color:#fb923c;">💧 Irrigate 8-10mm after</div>`:""}
+          ${t.type==="spray"&&!t.done?`<div style="font-size:10px;color:#f87171;">🔒 24hr lockout after</div>`:""}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end;">
+          <button onclick="toggleDone('${t.id}');rPlanner();" style="background:${t.done?"#2d5a3d":"#0a1a10"};border:1px solid ${t.done?"#4ade80":"#1e3a2f"};color:${t.done?"#4ade80":"#6b7280"};border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;">${t.done?"✓ Done":"Done"}</button>
+          <button onclick="openSchedModal('${t.id}')" style="background:#0a1a10;border:1px solid #1e3a2f;color:#a78bfa;border-radius:6px;padding:4px 9px;font-size:11px;">✏️</button>
+          <button onclick="deleteTask('${t.id}')" style="background:#0a1a10;border:1px solid #7f1d1d;color:#f87171;border-radius:6px;padding:4px 9px;font-size:11px;">✕</button>
+        </div>
+      </div>
+    </div>`).join("");
+    return`<div style="font-size:11px;font-weight:700;color:#4ade80;text-transform:uppercase;letter-spacing:1px;margin:14px 0 6px;">${day}</div>${cards}`;
+  }).join("");
+  document.getElementById("pg-planner").innerHTML=`
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <button class="btn btn-purple" style="margin-bottom:0;" onclick="openAddSchedModal(S.selPivot||'P0',null)">+ Add Task</button>
+    </div>
+    ${dayGroups}`;
+}
+
+// ═══════════════════════════════════════════════════════
+// CALENDAR
+// ═══════════════════════════════════════════════════════
+function rCal(){
+  const dayNotes=S.dayNotes||{};
+  const pivotList=PN;
+  // Grid view: days as columns, pivots as rows
+  const colW=Math.floor(100/(DAYS.length+1));
+  const hdr=`<tr><th style="background:#0a1a10;padding:4px;font-size:9px;color:#4ade80;position:sticky;left:0;z-index:2;">Pivot</th>${DAYS.map(d=>`<th style="background:#0a1a10;padding:4px;font-size:9px;color:#6b7280;min-width:38px;">${d}</th>`).join("")}</tr>`;
+  const rows=pivotList.map(pid=>{
+    const cols=DAYS.map(day=>{
+      const tasks=S.schedule.filter(t=>t.pivot===pid&&t.day===day);
+      if(!tasks.length)return`<td style="padding:2px;border:1px solid #1e3a2f;"></td>`;
+      return`<td style="padding:2px;border:1px solid #1e3a2f;" onclick="S.calSelDay='${day}';S.calView='day';rCal();">${tasks.map(t=>`<div style="background:${t.done?"#1a2e22":t.type==="spray"?"#1e3a5f":"#2d2000"};border-radius:3px;padding:1px 3px;font-size:8px;color:${t.done?"#4ade80":t.type==="spray"?"#60a5fa":"#facc15"};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:36px;cursor:pointer;">${t.product.substring(0,6)}</div>`).join("")}</td>`;
+    }).join("");
+    return`<tr><td style="background:#0a1a10;padding:4px;font-size:10px;font-weight:700;color:#e5e7eb;position:sticky;left:0;border:1px solid #1e3a2f;">${pid}</td>${cols}</tr>`;
+  }).join("");
+  const grid=`<div style="overflow-x:auto;margin-bottom:16px;"><table style="border-collapse:collapse;width:100%;min-width:340px;">${hdr}${rows}</table></div>`;
+  // Day detail
+  const selDay=S.calSelDay||"Mon";
+  const dayTasks=S.schedule.filter(t=>t.day===selDay).sort((a,b)=>a.pivot.localeCompare(b.pivot));
+  const dayBtns=DAYS.map(d=>`<button onclick="S.calSelDay='${d}';rCal();" style="flex:0 0 auto;padding:6px 11px;border-radius:6px;border:none;font-size:11px;font-weight:600;background:${S.calSelDay===d?"#4ade80":"#0f2318"};color:${S.calSelDay===d?"#070f09":"#6b7280"};">${d}</button>`).join("");
+  const dayDetail=`<div style="margin-bottom:10px;"><div style="font-size:11px;font-weight:700;color:#4ade80;margin-bottom:8px;">${selDay} — ${dayTasks.length} tasks</div><div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;">${dayBtns}</div>${dayTasks.length?dayTasks.map(t=>`<div class="card" style="margin-bottom:6px;border-left:3px solid ${t.done?"#2d5a3d":t.type==="spray"?"#60a5fa":"#facc15"};opacity:${t.done?0.6:1};">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+      <div style="flex:1;"><div style="display:flex;align-items:center;gap:5px;"><span style="font-weight:700;color:#60a5fa;">${t.pivot}</span><span style="font-size:10px;color:#6b7280;">${t.type==="spread"?"Spread":"Spray"} · ${MA[t.side]||t.side}</span>${t.done?'<span style="font-size:10px;color:#4ade80;">✓</span>':""}</div><div style="font-size:11px;color:#e5e7eb;">${t.product}</div>${t.note?`<div style="font-size:10px;color:#9ca3af;">📝 ${t.note}</div>`:""}</div>
+      <div style="display:flex;gap:4px;"><button onclick="toggleDone('${t.id}');rCal();" style="background:${t.done?"#2d5a3d":"#0a1a10"};border:1px solid ${t.done?"#4ade80":"#1e3a2f"};color:${t.done?"#4ade80":"#6b7280"};border-radius:6px;padding:4px 8px;font-size:10px;">${t.done?"✓":"Done"}</button><button onclick="openSchedModal('${t.id}')" style="background:#0a1a10;border:1px solid #1e3a2f;color:#a78bfa;border-radius:6px;padding:4px 7px;font-size:10px;">✏️</button></div>
+    </div>
+  </div>`).join(""):`<div style="color:#6b7280;text-align:center;padding:12px;">No tasks for ${selDay}</div>`}
+  <button class="btn btn-purple" style="margin-top:8px;" onclick="openAddSchedModal(S.selPivot||'P0','${selDay}')">+ Add Task for ${selDay}</button></div>`;
+  document.getElementById("pg-calendar").innerHTML=`<div style="font-size:11px;color:#4ade80;font-weight:700;margin-bottom:8px;">WEEKLY OVERVIEW</div>${grid}${dayDetail}`;
+}
+
+// ═══════════════════════════════════════════════════════
+// PRE-SCHEDULED IRRIGATION
+// ═══════════════════════════════════════════════════════
+function openPreSched(pivotId){
+  const now=new Date();
+  const modeOpts=AM.map(m=>`<option value="${m}">${m}</option>`).join("");
+  const spdOpts=SP.map(s=>`<option value="${s}"${s===50?" selected":""}>${s}%</option>`).join("");
+  document.getElementById("modalContent").innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div style="font-size:18px;font-weight:800;color:#e5e7eb;">🕐 Schedule Irrigation</div><button onclick="closeModal()" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;">✕</button></div>
+    <div class="il">Pivot</div><select class="if" id="ps_piv">${PN.map(p=>`<option value="${p}"${p===pivotId?" selected":""}>${p}</option>`).join("")}</select>
+    <div class="il">Scheduled Start Date & Time</div><input type="datetime-local" class="ib" id="ps_time" value="${now.toISOString().slice(0,16)}"/>
+    <div class="il">Speed</div><select class="if" id="ps_spd">${spdOpts}</select>
+    <div class="il">Mode</div><select class="if" id="ps_mode">${modeOpts}</select>
+    <button class="btn btn-blue" onclick="savePreSched()">Schedule Irrigation</button>`;
+  document.getElementById("mainModal").classList.add("open");
+}
+function savePreSched(){
+  const piv=document.getElementById("ps_piv").value;
+  const t=document.getElementById("ps_time").value;
+  const spd=parseInt(document.getElementById("ps_spd").value);
+  const mode=document.getElementById("ps_mode").value;
+  S.preScheduled.push({id:"ps"+Date.now(),pivot:piv,scheduledTime:t,speed:spd,mode,done:false});
+  closeModal();save();
+  if(S.page==="detail")rDetail();
+}
+
+// ═══════════════════════════════════════════════════════
+// AUTO-START SCHEDULED IRRIGATIONS
+// ═══════════════════════════════════════════════════════
+function checkAutoStart(){
+  const now=Date.now();
+  S.preScheduled.filter(s=>!s.started&&s.scheduledTime).forEach(s=>{
+    const t=new Date(s.scheduledTime).getTime();
+    if(!isNaN(t)&&t<=now&&now-t<300000){
+      const piv=S.pivots.find(p=>p.id===s.pivot);
+      if(piv&&!piv.active){
+        S.pivots=S.pivots.map(p=>p.id===s.pivot?{...p,active:true,startTime:s.scheduledTime,stopTime:null,speed:s.speed,mode:s.mode}:p);
+        s.started=true;
+        lh(s.pivot,'Auto-Started',`Scheduled: ${s.mode} · ${s.speed}%`);
+        save();rDash();
+        if(S.page==='detail'&&S.selPivot===s.pivot)rDetail();
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// PLANTING DATE MODALS
+// ═══════════════════════════════════════════════════════
+function openSetPlantDate(id){
+  document.getElementById("modalContent").innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div style="font-size:18px;font-weight:800;color:#e5e7eb;">📅 Set Planting Date — ${id}</div><button onclick="closeModal()" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;">✕</button></div>
+    <div class="il">Planting Date</div><input type="date" class="ib" id="pd_date" value="${PD[id]||new Date().toISOString().slice(0,10)}"/>
+    <button class="btn btn-green" onclick="savePlantDate('${id}')">Save Date</button>`;
+  document.getElementById("mainModal").classList.add("open");
+}
+function savePlantDate(id){
+  PD[id]=document.getElementById("pd_date").value;
+  closeModal();save();rDetail();
+}
+function openResetDap(id){
+  document.getElementById("modalContent").innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;"><div style="font-size:18px;font-weight:800;color:#e5e7eb;">🔄 Reset DAP — ${id}</div><button onclick="closeModal()" style="background:#1e3a2f;border:none;color:#9ca3af;border-radius:8px;padding:6px 14px;">✕</button></div>
+    <div class="card" style="margin-bottom:12px;"><div style="font-size:13px;color:#fb923c;">This will archive the current planting and reset DAP to 0 for a new crop.</div></div>
+    <div class="il">New Planting Date</div><input type="date" class="ib" id="rd_date" value="${new Date().toISOString().slice(0,10)}"/>
+    <div class="il">Notes</div><input type="text" class="ib" id="rd_note" placeholder="Season / variety notes"/>
+    <button class="btn btn-orange" onclick="doResetDap('${id}')">Reset DAP (New Crop)</button>`;
+  document.getElementById("mainModal").classList.add("open");
+}
+function doResetDap(id){
+  if(!S.plantingHistory[id])S.plantingHistory[id]=[];
+  S.plantingHistory[id].unshift({plantedAt:PD[id],resetAt:new Date().toISOString(),notes:document.getElementById("rd_note").value});
+  PD[id]=document.getElementById("rd_date").value;
+  closeModal();save();rDetail();
+}
+
+// ═══════════════════════════════════════════════════════
+// HISTORY PAGE
+// ═══════════════════════════════════════════════════════
+function rHistory(){
+  const tabs=[["log","📜 Log"],["planting","🌱 Planting"],["backup","💾 Backup"]];
+  const tabBar=`<div class="tab-bar">${tabs.map(([t,l])=>`<button class="tab-btn${S.histTab===t?" on":""}" onclick="S.histTab='${t}';rHistory();">${l}</button>`).join("")}</div>`;
+  let body="";
+  if(S.histTab==="log"){
+    body=S.historyLog.length?S.historyLog.slice(0,50).map(h=>`<div class="card" style="margin-bottom:6px;"><div style="display:flex;justify-content:space-between;"><span style="font-size:11px;font-weight:700;color:#4ade80;">${h.pivot||"—"}</span><span style="font-size:10px;color:#6b7280;">${fdt(h.timestamp)}</span></div><div style="font-size:11px;color:#e5e7eb;">${h.action}</div><div style="font-size:10px;color:#9ca3af;">${h.detail||""}</div></div>`).join(""):`<div style="color:#6b7280;text-align:center;padding:24px;">No activity yet</div>`;
+  } else if(S.histTab==="planting"){
+    body=PN.map(id=>{
+      const ph=S.plantingHistory[id]||[];
+      if(!ph.length)return"";
+      return`<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;color:#4ade80;margin-bottom:6px;">${id}</div>${ph.map(h=>`<div class="card"><div style="font-size:12px;color:#9ca3af;">Planted: ${fd(h.plantedAt)} → Reset: ${h.resetAt?fd(h.resetAt):"current"}</div>${h.notes?`<div style="font-size:11px;color:#6b7280;">${h.notes}</div>`:""}</div>`).join("")}</div>`;
+    }).join("")||`<div style="color:#6b7280;text-align:center;padding:24px;">No planting history yet</div>`;
+  } else {
+    body=`<div class="card" style="margin-bottom:12px;"><div style="font-size:13px;color:#e5e7eb;margin-bottom:4px;">Export / Import all farm data</div><div style="font-size:11px;color:#6b7280;">Use this to backup your data or transfer to a new version of the app.</div></div>
+    <button class="btn btn-green" onclick="exportData()">📤 Export Data (Backup)</button>
+    <button class="btn btn-blue" onclick="importData()">📥 Import Data (Restore)</button>`;
+  }
+  document.getElementById("pg-history").innerHTML=tabBar+body;
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════════════════════════
+function exportData(){
+  const obj={version:3,exportedAt:new Date().toISOString(),pivots:S.pivots,fertRecs:S.fertRecs,chemRecs:S.chemRecs,schedule:S.schedule,dayNotes:S.dayNotes,preScheduled:S.preScheduled,plantingHistory:S.plantingHistory,irrigHistory:S.irrigHistory,historyLog:S.historyLog,plantDates:PD};
+  const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");a.href=url;a.download="WakaWaka_backup_"+new Date().toISOString().slice(0,10)+".json";a.click();URL.revokeObjectURL(url);
+}
+function importData(){
+  const input=document.createElement("input");input.type="file";input.accept=".json";
+  input.onchange=e=>{
+    const file=e.target.files[0];if(!file)return;
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      try{
+        const d=JSON.parse(ev.target.result);
+        if(d.version&&d.pivots){
+          if(d.pivots)S.pivots=d.pivots;
+          if(d.fertRecs)S.fertRecs=d.fertRecs;
+          if(d.chemRecs)S.chemRecs=d.chemRecs;
+          if(d.schedule)S.schedule=d.schedule;
+          if(d.dayNotes)S.dayNotes=d.dayNotes;
+          if(d.preScheduled)S.preScheduled=d.preScheduled;
+          if(d.plantingHistory)S.plantingHistory=d.plantingHistory;
+          if(d.irrigHistory)S.irrigHistory=d.irrigHistory;
+          if(d.historyLog)S.historyLog=d.historyLog;
+          if(d.plantDates)Object.assign(PD,d.plantDates);
+          save();rDash();
+          alert("✅ Data imported successfully!");
+        } else {alert("❌ Invalid backup file");}
+      }catch(err){alert("❌ Could not read file: "+err.message);}
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ═══════════════════════════════════════════════════════
+// MODAL HELPERS
+// ═══════════════════════════════════════════════════════
+function closeModal(){document.getElementById("mainModal").classList.remove("open");}
+function closeWarn(){document.getElementById("warnModal").classList.remove("open");}
+function showWarn(msg){document.getElementById("warnContent").innerHTML=`<div style="font-size:16px;font-weight:700;color:#f87171;margin-bottom:12px;">⚠ Warning</div><div style="font-size:13px;color:#e5e7eb;margin-bottom:16px;">${msg}</div><button class="btn btn-red" onclick="closeWarn()">OK</button>`;document.getElementById("warnModal").classList.add("open");}
+
+// ═══════════════════════════════════════════════════════
+// INIT + AUTO-REFRESH
+// ═══════════════════════════════════════════════════════
+document.getElementById("hdRight").textContent=new Date().toLocaleDateString("en-ZA",{day:"2-digit",month:"short",year:"numeric"});
+setInterval(()=>{checkAutoStart();
+  checkAutoStart();
+  if(S.page==="dashboard")rDash();
+  else if(S.page==="detail")rDetail();
+},60000);
+rDash();
+</script>
+</body>
+</html>
