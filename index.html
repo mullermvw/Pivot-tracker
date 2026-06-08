@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate"/>
+<meta http-equiv="Pragma" content="no-cache"/>
+<meta http-equiv="Expires" content="0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<title>Waka Waka Pivot Tracker v3</title>
+<script src="https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{background:#070f09;color:#e5e7eb;font-family:'Trebuchet MS',sans-serif;overscroll-behavior:none;}
+.page-content{height:calc(100vh - 120px);overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.no-jump{position:relative;}
+input:focus,textarea:focus,select:focus{position:relative;z-index:10;}
+input,select,textarea{outline:none;-webkit-appearance:none;font-family:inherit;}
+button{-webkit-appearance:none;font-family:inherit;cursor:pointer;}
+::-webkit-scrollbar{display:none;}
+.pulse{animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
+</style>
+</head>
+<body>
+<div id="root">
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;background:#070f09;color:#4ade80;font-family:Arial,sans-serif;flex-direction:column;gap:16px;">
+    <div style="font-size:24px;">🌿</div>
+    <div style="font-size:14px;">Loading Waka Waka...</div>
+    <div style="font-size:11px;color:#374151;">Requires internet connection</div>
+  </div>
+</div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ─── FARM DATA ────────────────────────────────────────────────────────────────
+const SD = {
+  P0:{100:{mm:2.4,hrs:7.3},95:{mm:2.6,hrs:7.7},90:{mm:2.7,hrs:8.1},85:{mm:2.9,hrs:8.6},80:{mm:3.1,hrs:9.1},75:{mm:3.3,hrs:9.7},70:{mm:3.5,hrs:10.4},65:{mm:3.8,hrs:11.2},60:{mm:4.1,hrs:12.1},55:{mm:4.4,hrs:13.2},50:{mm:4.9,hrs:14.5},45:{mm:5.4,hrs:16.2},40:{mm:6.1,hrs:18.2},35:{mm:7.0,hrs:20.8},30:{mm:8.1,hrs:24.2},25:{mm:9.8,hrs:29.1},20:{mm:12.2,hrs:36.3},15:{mm:16.3,hrs:48.5},10:{mm:24.4,hrs:72.7},5:{mm:48.9,hrs:145.4}},
+  P1:{100:{mm:3.7,hrs:10.2},95:{mm:3.9,hrs:10.7},90:{mm:4.1,hrs:11.3},85:{mm:4.3,hrs:12.0},80:{mm:4.6,hrs:12.7},75:{mm:4.9,hrs:13.6},70:{mm:5.3,hrs:14.5},65:{mm:5.7,hrs:15.6},60:{mm:6.1,hrs:17.0},55:{mm:6.7,hrs:18.5},50:{mm:7.4,hrs:20.3},45:{mm:8.2,hrs:22.6},40:{mm:9.2,hrs:25.4},35:{mm:10.5,hrs:29.1},30:{mm:12.3,hrs:33.9},25:{mm:14.7,hrs:40.7},20:{mm:18.4,hrs:50.9},15:{mm:24.6,hrs:67.8},10:{mm:36.8,hrs:101.7},5:{mm:73.7,hrs:203.4}},
+  P2:{100:{mm:3.7,hrs:10.2},95:{mm:3.9,hrs:10.7},90:{mm:4.1,hrs:11.3},85:{mm:4.3,hrs:12.0},80:{mm:4.6,hrs:12.7},75:{mm:4.9,hrs:13.6},70:{mm:5.3,hrs:14.5},65:{mm:5.7,hrs:15.6},60:{mm:6.1,hrs:17.0},55:{mm:6.7,hrs:18.5},50:{mm:7.4,hrs:20.3},45:{mm:8.2,hrs:22.6},40:{mm:9.2,hrs:25.4},35:{mm:10.5,hrs:29.1},30:{mm:12.3,hrs:33.9},25:{mm:14.7,hrs:40.7},20:{mm:18.4,hrs:50.9},15:{mm:24.6,hrs:67.8},10:{mm:36.8,hrs:101.7},5:{mm:73.7,hrs:203.4}},
+  P3:{100:{mm:3.7,hrs:10.2},95:{mm:3.9,hrs:10.7},90:{mm:4.1,hrs:11.3},85:{mm:4.3,hrs:12.0},80:{mm:4.6,hrs:12.7},75:{mm:4.9,hrs:13.6},70:{mm:5.3,hrs:14.5},65:{mm:5.7,hrs:15.6},60:{mm:6.1,hrs:17.0},55:{mm:6.7,hrs:18.5},50:{mm:7.4,hrs:20.3},45:{mm:8.2,hrs:22.6},40:{mm:9.2,hrs:25.4},35:{mm:10.5,hrs:29.1},30:{mm:12.3,hrs:33.9},25:{mm:14.7,hrs:40.7},20:{mm:18.4,hrs:50.9},15:{mm:24.6,hrs:67.8},10:{mm:36.8,hrs:101.7},5:{mm:73.7,hrs:203.4}},
+  P4:{100:{mm:3.6,hrs:11.6},95:{mm:3.8,hrs:12.2},90:{mm:4.0,hrs:12.9},85:{mm:4.3,hrs:13.7},80:{mm:4.5,hrs:14.5},75:{mm:4.8,hrs:15.5},70:{mm:5.2,hrs:16.6},65:{mm:5.6,hrs:17.9},60:{mm:6.0,hrs:19.4},55:{mm:6.6,hrs:21.1},50:{mm:7.2,hrs:23.2},45:{mm:8.0,hrs:25.8},40:{mm:9.0,hrs:29.1},35:{mm:10.3,hrs:33.2},30:{mm:12.1,hrs:38.7},25:{mm:14.5,hrs:46.5},20:{mm:18.1,hrs:58.1},15:{mm:24.1,hrs:77.5},10:{mm:36.2,hrs:116.2},5:{mm:72.3,hrs:232.5}},
+  P5:{100:{mm:4.1,hrs:10.2},95:{mm:4.3,hrs:10.7},90:{mm:4.5,hrs:11.3},85:{mm:4.8,hrs:12.0},80:{mm:5.1,hrs:12.7},75:{mm:5.4,hrs:13.6},70:{mm:5.8,hrs:14.5},65:{mm:6.3,hrs:15.6},60:{mm:6.8,hrs:17.0},55:{mm:7.4,hrs:18.5},50:{mm:8.1,hrs:20.3},45:{mm:9.0,hrs:22.6},40:{mm:10.2,hrs:25.4},35:{mm:11.6,hrs:29.1},30:{mm:13.6,hrs:33.9},25:{mm:16.3,hrs:40.7},20:{mm:20.3,hrs:50.9},15:{mm:27.1,hrs:67.8},10:{mm:40.7,hrs:101.7},5:{mm:81.4,hrs:203.4}},
+  P6:{100:{mm:3.3,hrs:11.6},95:{mm:3.4,hrs:12.2},90:{mm:3.6,hrs:12.9},85:{mm:3.9,hrs:13.7},80:{mm:4.1,hrs:14.5},75:{mm:4.4,hrs:15.5},70:{mm:4.7,hrs:16.6},65:{mm:5.0,hrs:17.9},60:{mm:5.5,hrs:19.4},55:{mm:6.0,hrs:21.1},50:{mm:6.5,hrs:23.2},45:{mm:7.3,hrs:25.8},40:{mm:8.2,hrs:29.1},35:{mm:9.4,hrs:33.2},30:{mm:10.9,hrs:38.7},25:{mm:13.1,hrs:46.5},20:{mm:16.4,hrs:58.1},15:{mm:21.8,hrs:77.5},10:{mm:32.7,hrs:116.2},5:{mm:65.5,hrs:232.5}},
+  P7:{100:{mm:5.4,hrs:5.8},95:{mm:5.7,hrs:6.1},90:{mm:6.0,hrs:6.5},85:{mm:6.3,hrs:6.8},80:{mm:6.7,hrs:7.3},75:{mm:7.2,hrs:7.8},70:{mm:7.7,hrs:8.3},65:{mm:8.3,hrs:9.0},60:{mm:9.0,hrs:9.7},55:{mm:9.8,hrs:10.6},50:{mm:10.8,hrs:11.6},45:{mm:12.0,hrs:12.9},40:{mm:13.5,hrs:14.5},35:{mm:15.4,hrs:16.6},30:{mm:18.0,hrs:19.4},25:{mm:21.6,hrs:23.3},20:{mm:27.0,hrs:29.1},15:{mm:36.0,hrs:38.8},10:{mm:54.0,hrs:58.2},5:{mm:107.9,hrs:116.4}},
+  P8:{100:{mm:5.4,hrs:5.8},95:{mm:5.7,hrs:6.1},90:{mm:6.0,hrs:6.5},85:{mm:6.3,hrs:6.8},80:{mm:6.7,hrs:7.3},75:{mm:7.2,hrs:7.8},70:{mm:7.7,hrs:8.3},65:{mm:8.3,hrs:9.0},60:{mm:9.0,hrs:9.7},55:{mm:9.8,hrs:10.6},50:{mm:10.8,hrs:11.6},45:{mm:12.0,hrs:12.9},40:{mm:13.5,hrs:14.5},35:{mm:15.4,hrs:16.6},30:{mm:18.0,hrs:19.4},25:{mm:21.6,hrs:23.3},20:{mm:27.0,hrs:29.1},15:{mm:36.0,hrs:38.8},10:{mm:54.0,hrs:58.2},5:{mm:107.9,hrs:116.4}},
+  P9:{100:{mm:9.0,hrs:14.5},95:{mm:9.5,hrs:15.3},90:{mm:10.0,hrs:16.2},85:{mm:10.6,hrs:17.1},80:{mm:11.3,hrs:18.2},75:{mm:12.0,hrs:19.4},70:{mm:12.9,hrs:20.8},65:{mm:13.8,hrs:22.4},60:{mm:15.0,hrs:24.2},55:{mm:16.4,hrs:26.4},50:{mm:18.0,hrs:29.1},45:{mm:20.0,hrs:32.3},40:{mm:22.5,hrs:36.3},35:{mm:25.7,hrs:41.5},30:{mm:30.0,hrs:48.5},25:{mm:36.0,hrs:58.2},20:{mm:45.0,hrs:72.7},15:{mm:60.0,hrs:96.9},10:{mm:90.0,hrs:145.4},5:{mm:180.0,hrs:290.8}},
+  P10:{100:{mm:3.7,hrs:13.1},95:{mm:3.9,hrs:13.8},90:{mm:4.1,hrs:14.5},85:{mm:4.4,hrs:15.4},80:{mm:4.6,hrs:16.3},75:{mm:4.9,hrs:17.4},70:{mm:5.3,hrs:18.7},65:{mm:5.7,hrs:20.1},60:{mm:6.2,hrs:21.8},55:{mm:6.7,hrs:23.8},50:{mm:7.4,hrs:26.1},45:{mm:8.2,hrs:29.1},40:{mm:9.3,hrs:32.7},35:{mm:10.6,hrs:37.4},30:{mm:12.3,hrs:43.6},25:{mm:14.8,hrs:52.3},20:{mm:18.5,hrs:65.4},15:{mm:24.7,hrs:87.2},10:{mm:37.0,hrs:130.7},5:{mm:74.0,hrs:261.5}},
+  P11:{100:{mm:4.6,hrs:18.8},95:{mm:4.8,hrs:19.8},90:{mm:5.1,hrs:20.9},85:{mm:5.4,hrs:22.1},80:{mm:5.7,hrs:23.5},75:{mm:6.1,hrs:25.1},70:{mm:6.5,hrs:26.8},65:{mm:7.0,hrs:28.9},60:{mm:7.6,hrs:31.3},55:{mm:8.3,hrs:34.2},50:{mm:9.1,hrs:37.6},45:{mm:10.1,hrs:41.8},40:{mm:11.4,hrs:47.0},35:{mm:13.0,hrs:53.7},30:{mm:15.2,hrs:62.6},25:{mm:18.2,hrs:75.2},20:{mm:22.8,hrs:94.0},15:{mm:30.3,hrs:125.3},10:{mm:45.5,hrs:187.9},5:{mm:91.0,hrs:375.9}},
+  P12:{100:{mm:1.8,hrs:2.9},95:{mm:1.9,hrs:3.1},90:{mm:2.0,hrs:3.2},85:{mm:2.1,hrs:3.4},80:{mm:2.2,hrs:3.6},75:{mm:2.4,hrs:3.9},70:{mm:2.5,hrs:4.1},65:{mm:2.7,hrs:4.5},60:{mm:3.0,hrs:4.8},55:{mm:3.2,hrs:5.3},50:{mm:3.6,hrs:5.8},45:{mm:4.0,hrs:6.4},40:{mm:4.4,hrs:7.3},35:{mm:5.1,hrs:8.3},30:{mm:5.9,hrs:9.7},25:{mm:7.1,hrs:11.6},20:{mm:8.9,hrs:14.5},15:{mm:11.9,hrs:19.3},10:{mm:17.8,hrs:29.0},5:{mm:35.6,hrs:58.0}},
+};
+const PN=["P0","P1","P2","P3","P4","P5","P6","P7","P8","P9","P10","P11","P12"];
+const SPD=[100,95,90,85,80,75,70,65,60,55,50,45,40,35,30,25,20,15,10,5];
+const HA={P0:28,P1:52,P2:52,P3:52,P4:67,P5:52,P6:67,P7:18,P8:18,P9:24,P10:84,P11:25,P12:12};
+const DAYS=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const MODES=["Full Circle","Top Side","Bottom Side","Top Left Quarter","Top Right Quarter","Bottom Left Quarter","Bottom Right Quarter","Top Left Eighth","Top Right Eighth","Upper Right Eighth","Lower Right Eighth","Bottom Right Eighth","Bottom Left Eighth","Lower Left Eighth","Upper Left Eighth"];
+const MF={"Full Circle":1,"Top Side":0.5,"Bottom Side":0.5,"Top Left Quarter":0.25,"Top Right Quarter":0.25,"Bottom Left Quarter":0.25,"Bottom Right Quarter":0.25,"Top Left Eighth":0.125,"Top Right Eighth":0.125,"Upper Right Eighth":0.125,"Lower Right Eighth":0.125,"Bottom Right Eighth":0.125,"Bottom Left Eighth":0.125,"Lower Left Eighth":0.125,"Upper Left Eighth":0.125};
+const C={bg:"#070f09",card:"#0f2318",cb:"#1e3a2f",deep:"#0a1a10",g:"#4ade80",y:"#facc15",b:"#60a5fa",p:"#a78bfa",o:"#fb923c",r:"#f87171",t:"#e5e7eb",m:"#9ca3af",d:"#6b7280",f:"#374151"};
+
+function gsd(id,spd){return SD[id]?SD[id][spd]||null:null;}
+
+function cp(pivot){
+  if(!pivot.active||!pivot.startTime||!pivot.speed)return null;
+  const s=gsd(pivot.id,pivot.speed);if(!s)return null;
+  const frac=MF[pivot.mode]||1;
+  const totalHrs=s.hrs*frac;
+  let start=new Date(pivot.startTime);
+  if(isNaN(start.getTime()))return null;
+  const el=(Date.now()-start.getTime())/3600000;
+  if(isNaN(el)||el<0)return null;
+  const pct=Math.min(100,(el/totalHrs)*100);
+  return{pct,el,totalHrs,rem:Math.max(0,totalHrs-el),
+    finish:new Date(start.getTime()+totalHrs*3600000),
+    mm:s.mm*frac};
+}
+
+function Circle({pct,mode,size=80,active,warn}){
+  const cx=size/2,cy=size/2,r=size*0.38,sw=size*0.13;
+  const circ=2*Math.PI*r;
+  const frac=MF[mode]||1;
+  const rotMap={"Full Circle":-90,"Top Side":-90,"Bottom Side":90,"Top Left Quarter":180,"Top Right Quarter":-90,"Bottom Left Quarter":90,"Bottom Right Quarter":0,"Top Left Eighth":-180,"Top Right Eighth":-90,"Upper Right Eighth":-45,"Lower Right Eighth":0,"Bottom Right Eighth":45,"Bottom Left Eighth":90,"Lower Left Eighth":135,"Upper Left Eighth":180};
+  const rot=rotMap[mode]!=null?rotMap[mode]:-90;
+  const totalArc=circ*frac,filledArc=totalArc*(pct/100);
+  const tc=warn?"#7f1d1d":C.cb,rc=warn?"#450a0a":"#2d5a3d",fc=warn?C.r:C.g;
+  return(
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={tc} strokeWidth={sw}/>
+      {active&&<circle cx={cx} cy={cy} r={r} fill="none" stroke={rc} strokeWidth={sw}
+        strokeDasharray={`${totalArc} ${circ}`} strokeLinecap="round" transform={`rotate(${rot} ${cx} ${cy})`}/>}
+      {active&&<circle cx={cx} cy={cy} r={r} fill="none" stroke={fc} strokeWidth={sw}
+        strokeDasharray={`${filledArc} ${circ}`} strokeLinecap="round" transform={`rotate(${rot} ${cx} ${cy})`}/>}
+      {active&&(()=>{
+        const angle=(rot+(pct/100)*frac*360)*(Math.PI/180);
+        return<line x1={cx} y1={cy} x2={cx+r*Math.cos(angle)} y2={cy+r*Math.sin(angle)}
+          stroke={C.y} strokeWidth={size*0.04} strokeLinecap="round"/>;
+      })()}
+      <circle cx={cx} cy={cy} r={size*0.06} fill={active?(warn?C.r:C.g):C.f}/>
+    </svg>
+  );
+}
+
+const initPivots=PN.map(id=>({id,active:false,startTime:null,speed:100,mode:"Full Circle"}));
+
+
+const THIS_WEEK_SCHED=[
+  // MON 1 Jun
+  {id:"w1",pivot:"P10",day:"Mon",type:"spray",product:"Spray 4 PostEm",side:"Full Circle",
+    chemicals:[{prod:"Albuff",rate:0.2,unit:"L/ha",lockout:24},{prod:"Balancer",rate:2,unit:"kg/ha",lockout:0},{prod:"Judge",rate:0.8,unit:"L/ha",lockout:24},{prod:"Emma",rate:0.3,unit:"L/ha",lockout:0},{prod:"Rescue",rate:0.5,unit:"L/ha",lockout:24},{prod:"Voloxynl",rate:1.5,unit:"L/ha",lockout:24},{prod:"Actikelp",rate:1,unit:"L/ha",lockout:0}],done:false},
+  {id:"w2",pivot:"P6",day:"Mon",type:"spread",product:"Spread 1 - NPK 34",side:"Full Circle",fertRate:"200",chemicals:[],done:false},
+  {id:"w3",pivot:"P3",day:"Mon",type:"spread",product:"Spread 2 - NPK 34",side:"Full Circle",fertRate:"200",chemicals:[],done:false},
+  // TUE 2 Jun
+  {id:"w4",pivot:"P4",day:"Tue",type:"spread",product:"Spread 2 - NPK 34",side:"Full Circle",fertRate:"200",chemicals:[],done:false},
+  {id:"w5",pivot:"P0",day:"Tue",type:"spread",product:"Spread 2 - NPK 34",side:"Full Circle",fertRate:"200",chemicals:[],done:false},
+  {id:"w6",pivot:"P5",day:"Tue",type:"spray",product:"Spray 4 PostEm",side:"Full Circle",
+    chemicals:[{prod:"Albuff",rate:0.2,unit:"L/ha",lockout:24},{prod:"Balancer",rate:2,unit:"kg/ha",lockout:0},{prod:"Judge",rate:0.8,unit:"L/ha",lockout:24},{prod:"Emma",rate:0.3,unit:"L/ha",lockout:0},{prod:"Starmax",rate:0.0125,unit:"kg/ha",lockout:0},{prod:"Rescue",rate:0.5,unit:"L/ha",lockout:24},{prod:"Voloxynl",rate:1.5,unit:"L/ha",lockout:24},{prod:"Actikelp",rate:1,unit:"L/ha",lockout:0}],done:false},
+  // WED 3 Jun
+  {id:"w7",pivot:"P6",day:"Wed",type:"spray",product:"Spray 5 PostEm Grass",side:"Full Circle",
+    chemicals:[{prod:"Albuff",rate:0.2,unit:"L/ha",lockout:24},{prod:"Actikelp",rate:1,unit:"L/ha",lockout:0},{prod:"TipTop",rate:0.35,unit:"L/ha",lockout:24},{prod:"Silwet",rate:0.07,unit:"L/ha",lockout:0}],done:false},
+  // THU 4 Jun
+  {id:"w8",pivot:"P6",day:"Thu",type:"spread",product:"MOP Correction",side:"Full Circle",fertRate:"150",chemicals:[],done:false},
+  {id:"w9",pivot:"P9",day:"Thu",type:"spray",product:"Fungi 1",side:"Full Circle",
+    chemicals:[{prod:"Albuff",rate:0.2,unit:"L/ha",lockout:24},{prod:"Meta Boron",rate:1,unit:"L/ha",lockout:0},{prod:"Fortix",rate:0.5,unit:"L/ha",lockout:0},{prod:"Sodium Moly",rate:0.1,unit:"L/ha",lockout:0},{prod:"Thiamex",rate:0.4,unit:"kg/ha",lockout:0},{prod:"Micro Z",rate:1,unit:"L/ha",lockout:0},{prod:"Newsil",rate:0.5,unit:"L/ha",lockout:0},{prod:"Tripple 10",rate:1,unit:"L/ha",lockout:0},{prod:"Silwet",rate:0.07,unit:"L/ha",lockout:0}],done:false},
+  // FRI 5 Jun
+  {id:"w10",pivot:"P4",day:"Fri",type:"spray",product:"Spray 5 PostEm Grass",side:"Full Circle",
+    chemicals:[{prod:"Albuff",rate:0.2,unit:"L/ha",lockout:24},{prod:"Actikelp",rate:1,unit:"L/ha",lockout:0},{prod:"TipTop",rate:0.35,unit:"L/ha",lockout:24},{prod:"Silwet",rate:0.07,unit:"L/ha",lockout:0}],done:false},
+  {id:"w11",pivot:"P5",day:"Fri",type:"spread",product:"Spread 2 - NPK 34",side:"Full Circle",fertRate:"200",chemicals:[],done:false},
+  {id:"w12",pivot:"P4",day:"Fri",type:"spray",product:"Spray 2 Soil",side:"Full Circle",
+    chemicals:[{prod:"Amino K",rate:2,unit:"L/ha",lockout:0},{prod:"Ingwabor",rate:2,unit:"kg/ha",lockout:0},{prod:"Bandit",rate:0.4,unit:"L/ha",lockout:24}],done:false},
+  {id:"w13",pivot:"P9",day:"Fri",type:"spread",product:"Spread 3 - 3.0.1",side:"Full Circle",fertRate:"200",chemicals:[],done:false},
+  // SAT 6 Jun
+  {id:"w14",pivot:"P0",day:"Sat",type:"spray",product:"Spray 5 PostEm Grass",side:"Full Circle",
+    chemicals:[{prod:"Albuff",rate:0.2,unit:"L/ha",lockout:24},{prod:"Actikelp",rate:1,unit:"L/ha",lockout:0},{prod:"TipTop",rate:0.35,unit:"L/ha",lockout:24},{prod:"Silwet",rate:0.07,unit:"L/ha",lockout:0}],done:false},
+  {id:"w15",pivot:"P11",day:"Sat",type:"spray",product:"Fungi 1",side:"Full Circle",
+    chemicals:[{prod:"Albuff",rate:0.2,unit:"L/ha",lockout:24},{prod:"Meta Boron",rate:1,unit:"L/ha",lockout:0},{prod:"Fortix",rate:0.5,unit:"L/ha",lockout:0},{prod:"Sodium Moly",rate:0.1,unit:"L/ha",lockout:0},{prod:"Thiamex",rate:0.4,unit:"kg/ha",lockout:0},{prod:"Micro Z",rate:1,unit:"L/ha",lockout:0},{prod:"Newsil",rate:0.5,unit:"L/ha",lockout:0},{prod:"Tripple 10",rate:1,unit:"L/ha",lockout:0},{prod:"Silwet",rate:0.07,unit:"L/ha",lockout:0}],done:false},
+];
+
+function App(){
+  const [page,setPage]=useState("dashboard");
+  const scrollPos=useRef({});
+  const changePage=(pg)=>{
+    const el=document.getElementById("pageContent");
+    if(el)scrollPos.current[page]=el.scrollTop;
+    setPage(pg);
+    setTimeout(()=>{
+      const el2=document.getElementById("pageContent");
+      if(el2)el2.scrollTop=scrollPos.current[pg]||0;
+    },50);
+  };
+  const [pivots,setPivots]=useState(initPivots);
+  const [sel,setSel]=useState(null);
+  const [tab,setTab]=useState("irrigation");
+  const [fertRecs,setFertRecs]=useState([]);
+  const [chemRecs,setChemRecs]=useState([]);
+  const [sched,setSched]=useState([]);
+  const [photos,setPhotos]=useState([]);
+  const [irrigHist,setIrrigHist]=useState({});
+  const [schedIrrig,setSchedIrrig]=useState([]);
+  const [deletedSched,setDeletedSched]=useState([]);
+  const [completedTasks,setCompletedTasks]=useState(()=>{
+    try{const s=localStorage.getItem("ww_completed");return s?JSON.parse(s):[]}catch(e){return[];}
+  });
+  const [modal,setModal]=useState(null);
+  const [form,setForm]=useState({});
+  const [recTab,setRecTab]=useState("fert");
+  const [tblP,setTblP]=useState("P0");
+  const [aiLoad,setAiLoad]=useState(false);
+  const [aiErr,setAiErr]=useState("");
+  const [warn,setWarn]=useState(null);
+  const [editSched,setEditSched]=useState(null);
+  const [tankTask,setTankTask]=useState(null);
+  const [tankTicks,setTankTicks]=useState({});
+  const [allTankData,setAllTankData]=useState(()=>{
+    try{const s=localStorage.getItem("ww_tankdata");return s?JSON.parse(s):{}}catch(e){return{};}
+  });
+  const [tankSize,setTankSize]=useState(2000);
+  const [,setTick]=useState(0);
+  const fileRef=useRef();
+
+  // localStorage
+  useEffect(()=>{
+    try{
+      const saved=localStorage.getItem("ww_state");
+      if(saved){
+        const d=JSON.parse(saved);
+        if(d.pivots)setPivots(d.pivots);
+        if(d.fertRecs)setFertRecs(d.fertRecs);
+        if(d.chemRecs)setChemRecs(d.chemRecs);
+        if(d.sched)setSched(d.sched);
+        if(d.photos)setPhotos(d.photos);
+        if(d.irrigHist)setIrrigHist(d.irrigHist);
+      }
+    }catch(e){}
+    const tick=setInterval(()=>{
+      setTick(t=>t+1);
+      // Auto-start scheduled irrigations
+      setSchedIrrig(prev=>{
+        const now=Date.now();
+        let changed=false;
+        const updated=prev.map(s=>{
+          if(!s.started&&s.scheduledTime){
+            const t=new Date(s.scheduledTime).getTime();
+            if(!isNaN(t)&&t<=now&&now-t<300000){
+              changed=true;
+              setPivots(pp=>pp.map(p=>p.id===s.pivot&&!p.active?{...p,active:true,startTime:s.scheduledTime,speed:s.speed,mode:s.mode}:p));
+              return{...s,started:true};
+            }
+          }
+          return s;
+        });
+        if(changed)return updated;
+        return prev;
+      });
+    },30000);
+    return()=>clearInterval(tick);
+  },[]);
+
+  const save=(ps,fr,cr,sc,ph,ih,si)=>{
+    try{localStorage.setItem("ww_state",JSON.stringify({pivots:ps,fertRecs:fr,chemRecs:cr,sched:sc,photos:ph,irrigHist:ih||irrigHist,schedIrrig:si||schedIrrig,deletedSched:deletedSched}));}catch(e){}
+  };
+
+  const upd=(id,ch)=>{
+    const nps=pivots.map(p=>p.id===id?{...p,...ch}:p);
+    setPivots(nps);save(nps,fertRecs,chemRecs,sched,photos);
+  };
+
+  function getLockout(pid){
+    const sp=chemRecs.filter(r=>r.pivot===pid&&r.sprayTime);
+    if(!sp.length)return null;
+    const lt=sp.sort((a,b)=>new Date(b.sprayTime)-new Date(a.sprayTime))[0];
+    const lh=lt.lockoutHrs!==undefined?lt.lockoutHrs:24;
+    if(lh===0)return null;
+    const el=(Date.now()-new Date(lt.sprayTime).getTime())/3600000;
+    if(el<lh)return{h:(lh-el).toFixed(1),lh};
+    return null;
+  }
+
+  function getFertWarn(pid){
+    const p=fertRecs.filter(r=>r.pivot===pid&&!r.irrigated);
+    return p.length?p[p.length-1]:null;
+  }
+
+  function startIrrig(pivotId,data){
+    const lock=getLockout(pivotId);
+    const fw=getFertWarn(pivotId);
+    if(lock){
+      setWarn({title:"⚠️ Spray Lockout",msg:`${pivotId}: ${lock.h}h lockout remaining.\nProceed anyway?`,
+        go:()=>{doStart(pivotId,data);setWarn(null);}});
+    } else if(fw){
+      setWarn({title:"⚠️ Fertilizer Not Irrigated",msg:`${pivotId} has ${fw.product} that needs 8-10mm irrigation on ${fw.side}.\nProceed?`,
+        go:()=>{doStart(pivotId,data);setWarn(null);}});
+    } else doStart(pivotId,data);
+  }
+
+  function doStart(pid,data){
+    const nps=pivots.map(p=>p.id===pid?{...p,active:true,startTime:data.startTime,speed:parseInt(data.speed),mode:data.mode}:p);
+    setPivots(nps);
+    const nfr=fertRecs.map(r=>{
+      if(r.pivot===pid&&!r.irrigated){
+        const m=data.mode==="Full Circle"||(r.side&&data.mode.includes(r.side.split(" ")[0]));
+        return m?{...r,irrigated:true,irrigatedAt:new Date().toISOString()}:r;
+      }
+      return r;
+    });
+    setFertRecs(nfr);
+    save(nps,nfr,chemRecs,sched,photos,irrigHist);
+    setModal(null);setForm({});
+  }
+
+  function stopIrrig(pid){
+    const pivot=pivots.find(p=>p.id===pid);
+    if(pivot){
+      const pr=cp(pivot);
+      if(pr&&pr.pct>0&&pr.el>0){
+        const ha=HA[pid]||0;
+        const mmApp=Math.max(0,pr.mm*pr.pct/100);
+        const m3=Math.max(0,mmApp*ha*10);
+        const now=new Date();
+        const month=now.getMonth();
+        const season=month>=3&&month<=8?"Autumn/Winter":"Spring/Summer";
+        const entry={id:`ih${Date.now()}`,startTime:pivot.startTime,stopTime:now.toISOString(),
+          mode:pivot.mode,speed:pivot.speed,pct:pr.pct.toFixed(1),
+          mmApplied:mmApp.toFixed(1),m3:m3.toFixed(0),season};
+        const nih={...irrigHist,[pid]:[entry,...(irrigHist[pid]||[])]};
+        setIrrigHist(nih);
+        const nps=pivots.map(p=>p.id===pid?{...p,active:false,startTime:null}:p);
+        setPivots(nps);save(nps,fertRecs,chemRecs,sched,photos,nih);
+        return;
+      }
+    }
+    const nps=pivots.map(p=>p.id===pid?{...p,active:false,startTime:null}:p);
+    setPivots(nps);save(nps,fertRecs,chemRecs,sched,photos,irrigHist);
+  }
+
+  async function scanCal(dataUrl){
+    setAiLoad(true);setAiErr("");
+    try{
+      const b64=dataUrl.split(",")[1];
+      const mediaType=dataUrl.split(";")[0].split(":")[1]||"image/jpeg";
+      const resp=await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "x-api-key":localStorage.getItem("ww_apikey")||"",
+          "anthropic-version":"2023-06-01",
+          "anthropic-dangerous-direct-browser-access":"true"
+        },
+        body:JSON.stringify({
+          model:"claude-sonnet-4-5-20250929",
+          max_tokens:4000,
+          messages:[{role:"user",content:[
+            {type:"image",source:{type:"base64",media_type:mediaType,data:b64}},
+            {type:"text",text:`This is a farm spray and fertilizer schedule in spreadsheet/table format. Columns are pivots (P0-P12), rows are days. Extract ALL tasks. Return ONLY valid JSON array, no markdown. Each task: {"pivot":"P10","day":"Mon","type":"spray","product":"Spray 4 PostEm","side":"Full Circle","chemicals":[{"prod":"Albuff","rate":0.2,"unit":"L/ha"},{"prod":"Balancer","rate":2,"unit":"kg/ha"}]}. For spread/fertilizer: {"pivot":"P6","day":"Mon","type":"spread","product":"NPK 34 200kg/ha","side":"Full Circle","chemicals":[]}. Extract every chemical with exact rate and unit. Do not skip any tasks.`}
+          ]}]})
+      });
+      const data=await resp.json();
+      console.log("API response:",JSON.stringify(data).slice(0,500));
+      if(data.error){
+        setAiErr("API Error: "+data.error.message);
+        return 0;
+      }
+      const txt=data.content.map(i=>i.text||"").join("");
+      console.log("Raw text:",txt.slice(0,500));
+      // Clean up the response - remove markdown, find JSON array
+      const clean=txt.replace(/```json|```/g,"").trim();
+      const arrStart=clean.indexOf("[");
+      const arrEnd=clean.lastIndexOf("]");
+      if(arrStart===-1||arrEnd===-1){
+        setAiErr("Could not find task list in response. Got: "+clean.slice(0,100));
+        return 0;
+      }
+      const jsonStr=clean.slice(arrStart,arrEnd+1);
+      const items=JSON.parse(jsonStr);
+      if(!items.length){
+        setAiErr("No tasks found in image. Try a clearer screenshot.");
+        return 0;
+      }
+      const ne=items.map((it,i)=>({
+        id:`ai${Date.now()}_${i}`,
+        pivot:it.pivot||"P0",
+        day:it.day||"Mon",
+        type:it.type||"spray",
+        product:it.product||"Unknown",
+        side:it.side||"Full Circle",
+        chemicals:it.chemicals||[],
+        done:false,irrigated:false
+      }));
+      const ns=[...sched,...ne];
+      setSched(ns);
+      save(pivots,fertRecs,chemRecs,ns,photos,irrigHist,schedIrrig);
+      setAiErr("");
+      alert("✅ Added "+ne.length+" tasks from calendar!");
+      return ne.length;
+    }catch(e){
+      console.error("Scan error:",e);
+      setAiErr("Scan failed: "+e.message+". Check console for details.");
+      return 0;
+    }finally{setAiLoad(false);}
+  }
+
+  const inp=(label,key,type="text",opts=null)=>(
+    <div key={key} style={{marginBottom:12}}>
+      <div style={{fontSize:11,color:C.d,marginBottom:4,textTransform:"uppercase",letterSpacing:0.8}}>{label}</div>
+      {opts?(
+        <select defaultValue={form[key]||""} onChange={e=>{form[key]=e.target.value;setForm({...form});}}
+          style={{width:"100%",background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"10px 12px",color:C.t,fontSize:14}}>
+          {opts.map(o=><option key={o} value={o}>{o}</option>)}
+        </select>
+      ):(
+        <input type={type} defaultValue={form[key]||""}
+          onBlur={e=>{form[key]=e.target.value;setForm({...form});}}
+          onChange={e=>{form[key]=e.target.value;}}
+          style={{width:"100%",background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"10px 12px",color:C.t,fontSize:14,boxSizing:"border-box"}}/>
+      )}
+    </div>
+  );
+
+  // ─── WARN MODAL ──────────────────────────────────────────────────────────────
+  const WarnModal=()=>{
+    if(!warn)return null;
+    return(
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+        <div style={{background:"#1a0a0a",border:"1px solid #7f1d1d",borderRadius:16,padding:24,maxWidth:340,width:"100%"}}>
+          <div style={{fontSize:18,fontWeight:800,color:C.r,marginBottom:12}}>{warn.title}</div>
+          <div style={{fontSize:14,color:C.t,lineHeight:1.6,marginBottom:20,whiteSpace:"pre-line"}}>{warn.msg}</div>
+          <div style={{display:"flex",gap:10}}>
+            <button onClick={()=>setWarn(null)} style={{flex:1,padding:12,background:C.deep,border:`1px solid ${C.cb}`,borderRadius:10,color:C.m,fontWeight:700,cursor:"pointer"}}>Cancel</button>
+            <button onClick={warn.go} style={{flex:1,padding:12,background:"#7f1d1d",border:"none",borderRadius:10,color:C.t,fontWeight:700,cursor:"pointer"}}>Proceed Anyway</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── MAIN MODAL ──────────────────────────────────────────────────────────────
+  const Modal=()=>{
+    if(!modal)return null;
+    const isSchedIrrig=modal==="schedIrrig";
+    const isStart=modal==="start";
+    const isFert=modal==="fert"||modal==="fertG";
+    const isChem=modal==="chem"||modal==="chemG";
+    const isGlobal=modal==="fertG"||modal==="chemG";
+    const isSched=modal==="sched";
+    const s=isStart?gsd(form.pivotId,parseInt(form.speed)):null;
+    const lock=isStart?getLockout(form.pivotId):null;
+
+    const submit=()=>{
+      if(modal==="schedIrrig"){
+        const ns=[...schedIrrig,{id:`si${Date.now()}`,pivot:form.pivotId,speed:parseInt(form.speed)||100,mode:form.mode||"Full Circle",scheduledTime:form.scheduledTime,started:false}];
+        setSchedIrrig(ns);save(pivots,fertRecs,chemRecs,sched,photos,irrigHist,ns);
+        setModal(null);setForm({});return;
+      }
+      if(isStart){startIrrig(form.pivotId,form);}
+      else if(isFert){
+        const pid=isGlobal?form.pivot:sel;
+        const rate=parseFloat(form.rate)||0;
+        const ha=HA[pid]||0;
+        const totalKg=form.totalKg||(rate>0?(rate*ha).toFixed(0):"—");
+        const nfr=[...fertRecs,{id:`f${Date.now()}`,pivot:pid,date:form.date,product:form.product,rate,totalKg,side:form.side||"Full Circle",operator:form.operator,notes:form.notes,needsIrrigation:true,irrigated:false,spreadAt:new Date().toISOString()}];
+        setFertRecs(nfr);save(pivots,nfr,chemRecs,sched,photos,irrigHist);
+      }else if(isChem){
+        const pid=isGlobal?form.pivot:sel;
+        const ncr=[...chemRecs,{id:`c${Date.now()}`,pivot:pid,date:form.date,product:form.product,type:form.type,rate:form.rate,waterVol:form.waterVol,operator:form.operator,notes:form.notes,lockoutHrs:parseFloat(form.lockHrs)||24,sprayTime:new Date().toISOString()}];
+        setChemRecs(ncr);save(pivots,fertRecs,ncr,sched,photos,irrigHist);
+      }else if(isSched){
+        const ns=[...sched,{id:`s${Date.now()}`,pivot:form.pivot||"P0",day:form.day||"Mon",type:form.schedType||"spray",product:form.product||"",side:form.side||"Full Circle",chemicals:[],done:false}];
+        setSched(ns);save(pivots,fertRecs,chemRecs,ns,photos,irrigHist);
+      }
+      setModal(null);setForm({});
+    };
+
+    return(
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:200,display:"flex",alignItems:"flex-end"}}
+        onClick={e=>{if(e.target===e.currentTarget){setModal(null);setForm({});}}}>
+        <div style={{background:"#0d1f14",borderRadius:"20px 20px 0 0",width:"100%",padding:"20px 20px 48px",maxHeight:"88vh",overflowY:"auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
+            <div style={{fontSize:18,fontWeight:800,color:C.t}}>
+              {isSchedIrrig?`🕐 Schedule ${form.pivotId}`:isStart?`Start ${form.pivotId}`:isFert?"Fertilizer Record":isChem?"Chemical Record":"Add Task"}
+            </div>
+            <button onClick={()=>{setModal(null);setForm({});}} style={{background:C.cb,border:"none",color:C.m,borderRadius:8,padding:"6px 14px",fontSize:16}}>✕</button>
+          </div>
+
+          {isSchedIrrig&&<>
+            {inp("Pivot","pivotId","text",PN)}
+            {inp("Scheduled Date & Time","scheduledTime","datetime-local")}
+            {inp("Speed %","speed","text",SPD.map(String))}
+            {inp("Mode","mode","text",MODES)}
+            <div style={{background:"#0a1020",border:"1px solid #2d4a7f",borderRadius:10,padding:10,marginBottom:12}}>
+              <div style={{fontSize:12,color:C.b}}>⏰ Pivot will auto-start at the scheduled time.</div>
+            </div>
+          </>}
+          {isStart&&<>
+            {inp("Pivot","pivotId","text",PN)}
+            {inp("Start Time","startTime","datetime-local")}
+            {inp("Speed %","speed","text",SPD.map(String))}
+            {inp("Mode","mode","text",MODES)}
+            {s&&<div style={{background:C.deep,borderRadius:10,padding:12,marginBottom:12}}>
+              <div style={{fontSize:11,color:C.g,marginBottom:6}}>AT {form.speed}% SPEED</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                <div><div style={{color:C.t,fontWeight:700}}>{s.mm} mm</div><div style={{fontSize:10,color:C.d}}>per revolution</div></div>
+                <div><div style={{color:C.t,fontWeight:700}}>{(s.hrs*(MF[form.mode]||1)).toFixed(1)} hrs</div><div style={{fontSize:10,color:C.d}}>total runtime</div></div>
+              </div>
+            </div>}
+            {lock&&<div style={{background:"#1a0a0a",border:"1px solid #7f1d1d",borderRadius:10,padding:10,marginBottom:12}}>
+              <div style={{fontSize:12,color:C.r,fontWeight:700}}>⚠️ Spray lockout: {lock.h}h remaining</div>
+            </div>}
+          </>}
+
+          {isFert&&<>
+            {isGlobal&&inp("Pivot","pivot","text",PN)}
+            {inp("Date","date","date")}
+            {inp("Product","product")}
+            {inp("Spread Side","side","text",MODES)}
+            {inp("Rate (kg/ha)","rate","number")}
+            {(()=>{const pid=isGlobal?form.pivot:sel;const ha=HA[pid]||0;const rate=parseFloat(form.rate)||0;const kg=rate>0?(rate*ha).toFixed(0):null;
+              return<div style={{background:C.deep,borderRadius:10,padding:"10px 12px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{fontSize:11,color:C.d}}>{pid} = <span style={{color:C.b,fontWeight:700}}>{ha} ha</span></div>
+                {kg&&<div style={{fontSize:14,fontWeight:800,color:C.y}}>{kg} kg total</div>}
+              </div>;})()}
+            {inp("Total kg — override","totalKg","number")}
+            {inp("Operator","operator")}
+            {inp("Notes","notes")}
+            <div style={{background:"#1a0f00",border:"1px solid #854d0e",borderRadius:10,padding:10,marginBottom:12}}>
+              <div style={{fontSize:12,color:C.y}}>⚠️ Irrigate 8–10mm on {form.side||"selected"} side after spreading.</div>
+            </div>
+          </>}
+
+          {isChem&&<>
+            {isGlobal&&inp("Pivot","pivot","text",PN)}
+            {inp("Date","date","date")}
+            {inp("Product","product")}
+            {inp("Type","type","text",["Fungicide","Insecticide","Herbicide","Foliar Fertilizer","Wetting Agent","Biological"])}
+            {inp("Application Rate","rate")}
+            {inp("Water Volume (L/ha)","waterVol","number")}
+            {inp("Operator","operator")}
+            {inp("Notes","notes")}
+            {inp("🔒 Lockout Hours (0 = no lockout)","lockHrs","number")}
+            <div style={{background:"#1a0a0a",border:"1px solid #7f1d1d",borderRadius:10,padding:10,marginBottom:12}}>
+              <div style={{fontSize:12,color:C.r}}>Default 24h lockout. Set 0 to disable.</div>
+            </div>
+          </>}
+
+          {isSched&&<>
+            {inp("Pivot","pivot","text",PN)}
+            {inp("Day","day","text",DAYS)}
+            {inp("Type","schedType","text",["spray","spread"])}
+            {inp("Product / Description","product")}
+            {inp("Side","side","text",MODES)}
+          </>}
+
+          <button onClick={submit} style={{width:"100%",background:isStart?C.g:isFert?C.y:isChem?C.b:C.p,color:C.bg,border:"none",borderRadius:12,padding:14,fontWeight:800,fontSize:16,cursor:"pointer",marginTop:4}}>
+            {isStart?"Start Irrigation":"Save"}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── EDIT SCHEDULE MODAL ─────────────────────────────────────────────────────
+  const EditSched=()=>{
+    const [chems,setChems]=useState(editSched?[...(editSched.chemicals||[])]:[]);
+    if(!editSched)return null;
+    const [ef,setEf]=useState({...editSched});
+
+    const addChem=()=>setChems(c=>[...c,{prod:"",rate:"",unit:"L/ha",lockout:24}]);
+    const updChem=(i,k,v)=>setChems(c=>c.map((ch,idx)=>idx===i?{...ch,[k]:v}:ch));
+    const delChem=(i)=>setChems(c=>c.filter((_,idx)=>idx!==i));
+
+    const saveEdit=()=>{
+      const updated={...ef,chemicals:chems.filter(c=>c.prod)};
+      const ns=sched.map(s=>s.id===editSched.id?updated:s);
+      setSched(ns);save(pivots,fertRecs,chemRecs,ns,photos,irrigHist);
+      setEditSched(null);
+    };
+
+    return(
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:200,display:"flex",alignItems:"flex-end"}}
+        onClick={e=>{if(e.target===e.currentTarget)setEditSched(null);}}>
+        <div style={{background:"#0d1f14",borderRadius:"20px 20px 0 0",width:"100%",padding:"20px 20px 48px",maxHeight:"90vh",overflowY:"auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+            <div style={{fontSize:18,fontWeight:800,color:C.t}}>✏️ Edit Task</div>
+            <button onClick={()=>setEditSched(null)} style={{background:C.cb,border:"none",color:C.m,borderRadius:8,padding:"6px 14px",fontSize:16}}>✕</button>
+          </div>
+
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:11,color:C.d,marginBottom:4,textTransform:"uppercase"}}>Day</div>
+            <select value={ef.day} onChange={e=>setEf(f=>({...f,day:e.target.value}))} style={{width:"100%",background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"10px 12px",color:C.t,fontSize:14}}>
+              {DAYS.map(d=><option key={d}>{d}</option>)}
+            </select>
+          </div>
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:11,color:C.d,marginBottom:4,textTransform:"uppercase"}}>Side / Mode</div>
+            <select value={ef.side} onChange={e=>setEf(f=>({...f,side:e.target.value}))} style={{width:"100%",background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"10px 12px",color:C.t,fontSize:14}}>
+              {MODES.map(m=><option key={m}>{m}</option>)}
+            </select>
+          </div>
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:11,color:C.d,marginBottom:4,textTransform:"uppercase"}}>Description</div>
+            <input defaultValue={ef.product} onBlur={e=>setEf(f=>({...f,product:e.target.value}))} style={{width:"100%",background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"10px 12px",color:C.t,fontSize:14,boxSizing:"border-box"}}/>
+          </div>
+
+          {ef.type==="spray"&&<>
+            <div style={{fontSize:11,color:C.d,marginBottom:6,textTransform:"uppercase",letterSpacing:0.8}}>Chemicals & Rates</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 65px 55px 28px",gap:3,marginBottom:4}}>
+              {["Product","Rate","Unit",""].map(h=><div key={h} style={{fontSize:10,color:C.d}}>{h}</div>)}
+            </div>
+            {chems.map((ch,i)=>(
+              <div key={i} style={{background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:8,marginBottom:6}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 65px 55px 28px",gap:3,marginBottom:4,alignItems:"center"}}>
+                  <input defaultValue={ch.prod} onBlur={e=>updChem(i,"prod",e.target.value)} placeholder="Product" style={{background:"transparent",border:"none",borderBottom:`1px solid ${C.cb}`,color:C.t,fontSize:12,padding:"4px 0"}}/>
+                  <input type="number" defaultValue={ch.rate} onBlur={e=>updChem(i,"rate",e.target.value)} placeholder="Rate" style={{background:"transparent",border:"none",borderBottom:`1px solid ${C.cb}`,color:C.t,fontSize:12,padding:"4px 0"}}/>
+                  <select value={ch.unit||"L/ha"} onChange={e=>updChem(i,"unit",e.target.value)} style={{background:C.deep,border:`1px solid ${C.cb}`,borderRadius:4,color:C.t,fontSize:10,padding:"2px"}}>
+                    {["L/ha","ml/ha","kg/ha","g/ha"].map(u=><option key={u}>{u}</option>)}
+                  </select>
+                  <button onClick={()=>delChem(i)} style={{background:"#7f1d1d",border:"none",color:C.r,borderRadius:6,padding:4,fontSize:12}}>✕</button>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:10,color:C.d,whiteSpace:"nowrap"}}>🔒 Lockout hrs:</span>
+                  <input type="number" defaultValue={ch.lockout!==undefined?ch.lockout:24} onBlur={e=>updChem(i,"lockout",parseFloat(e.target.value)||0)} min="0" max="168" style={{width:50,background:"transparent",border:`1px solid ${C.cb}`,borderRadius:4,color:C.t,fontSize:12,padding:"2px 4px"}}/>
+                  <span style={{fontSize:10,color:C.d}}>(0 = no lockout)</span>
+                </div>
+              </div>
+            ))}
+            <button onClick={addChem} style={{width:"100%",background:C.deep,border:`1px dashed ${C.g}`,color:C.g,borderRadius:8,padding:8,fontSize:12,marginBottom:8,cursor:"pointer"}}>+ Add Chemical</button>
+
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:11,color:C.d,marginBottom:4,textTransform:"uppercase"}}>Water Rate (L/ha)</div>
+              <input type="number" defaultValue={ef.waterRate||200} onBlur={e=>setEf(f=>({...f,waterRate:parseFloat(e.target.value)||200}))} style={{width:"100%",background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"10px 12px",color:C.t,fontSize:14,boxSizing:"border-box"}}/>
+            </div>
+          </>}
+
+          {ef.type==="spread"&&<>
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:11,color:C.d,marginBottom:4,textTransform:"uppercase"}}>Rate (kg/ha)</div>
+              <input defaultValue={ef.fertRate||""} onBlur={e=>setEf(f=>({...f,fertRate:e.target.value}))} style={{width:"100%",background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"10px 12px",color:C.t,fontSize:14,boxSizing:"border-box"}}/>
+            </div>
+          </>}
+
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:11,color:C.d,marginBottom:4,textTransform:"uppercase"}}>📝 Actuals</div>
+            <textarea defaultValue={ef.actualNote||""} onBlur={e=>setEf(f=>({...f,actualNote:e.target.value}))} rows={3} placeholder="Record what actually happened..." style={{width:"100%",background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"10px 12px",color:C.t,fontSize:14,resize:"vertical",boxSizing:"border-box"}}/>
+          </div>
+
+          <button onClick={saveEdit} style={{width:"100%",background:C.p,color:C.bg,border:"none",borderRadius:12,padding:14,fontWeight:800,fontSize:16,cursor:"pointer",marginBottom:8}}>💾 Save Changes</button>
+          <button onClick={()=>{const ns=sched.filter(s=>s.id!==editSched.id);setSched(ns);save(pivots,fertRecs,chemRecs,ns,photos,irrigHist);setEditSched(null);}} style={{width:"100%",background:"#7f1d1d",color:C.t,border:"none",borderRadius:12,padding:12,fontWeight:700,fontSize:14,cursor:"pointer"}}>🗑 Delete Task</button>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── TANK CALCULATOR ─────────────────────────────────────────────────────────
+  const TankCalc=()=>{
+    if(!tankTask)return null;
+    const task=sched.find(s=>s.id===tankTask);
+    if(!task)return null;
+    const ha=HA[task.pivot]||52;
+    const frac=MF[task.side]||1;
+    const totalHa=ha*frac;
+    const wr=task.waterRate||200;
+    const chems=task.chemicals||[];
+    const haPerTank=tankSize/wr;
+    const numTanks=Math.ceil(totalHa/haPerTank);
+    const lastHa=totalHa-(numTanks-1)*haPerTank;
+
+    return(
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.88)",zIndex:200,display:"flex",alignItems:"flex-end"}}
+        onClick={e=>{if(e.target===e.currentTarget){setTankTask(null);setTankTicks({});}}}>
+        <div style={{background:"#0d1f14",borderRadius:"20px 20px 0 0",width:"100%",padding:"20px 20px 48px",maxHeight:"90vh",overflowY:"auto"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:16,fontWeight:800,color:C.t}}>🧮 Tank Calc — {task.pivot}</div>
+            <button onClick={()=>{setTankTask(null);setTankTicks({});}} style={{background:C.cb,border:"none",color:C.m,borderRadius:8,padding:"6px 14px",fontSize:16}}>✕</button>
+          </div>
+
+          <div style={{background:C.deep,borderRadius:10,padding:10,marginBottom:12}}>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:6,textAlign:"center"}}>
+              <div><div style={{fontSize:16,fontWeight:800,color:C.g}}>{totalHa.toFixed(1)}</div><div style={{fontSize:9,color:C.d}}>ha</div></div>
+              <div><div style={{fontSize:16,fontWeight:800,color:C.b}}>{wr}</div><div style={{fontSize:9,color:C.d}}>L/ha</div></div>
+              <div><div style={{fontSize:16,fontWeight:800,color:C.y}}>{tankSize}</div><div style={{fontSize:9,color:C.d}}>Tank L</div></div>
+              <div><div style={{fontSize:16,fontWeight:800,color:C.p}}>{numTanks}</div><div style={{fontSize:9,color:C.d}}>Tanks</div></div>
+            </div>
+          </div>
+
+          <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:12}}>
+            <div style={{fontSize:11,color:C.d,whiteSpace:"nowrap"}}>Tank size:</div>
+            <input type="number" value={tankSize} onChange={e=>setTankSize(parseFloat(e.target.value)||2000)} style={{flex:1,background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"8px 12px",color:C.t,fontSize:14}}/>
+            <div style={{fontSize:11,color:C.d}}>L</div>
+            <button onClick={()=>setTankTicks({})} style={{background:C.deep,border:`1px solid ${C.cb}`,color:C.m,borderRadius:8,padding:"8px 10px",fontSize:11,cursor:"pointer"}}>↺ Reset</button>
+          </div>
+
+          {!chems.length&&<div style={{background:"#2d1000",border:"1px solid #854d0e",borderRadius:10,padding:16,textAlign:"center"}}>
+            <div style={{fontSize:14,color:C.y,fontWeight:700,marginBottom:6}}>🧪 No chemicals added yet</div>
+            <div style={{fontSize:12,color:C.m}}>Edit this task (✏️) to add chemicals and rates first.</div>
+          </div>}
+
+          {chems.length>0&&Array.from({length:numTanks},(_, ti)=>{
+            const thisHa=ti===numTanks-1?lastHa:haPerTank;
+            const allTicked=chems.every((_,ci)=>tankTicks[`${ti}_${ci}`]);
+            return(
+              <div key={ti} style={{background:allTicked?"#0d2018":"#0f2318",border:`1px solid ${allTicked?C.g:C.cb}`,borderRadius:12,padding:12,marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                  <div style={{fontSize:14,fontWeight:800,color:allTicked?C.g:C.t}}>{allTicked?"✅":"🪣"} Tank {ti+1} of {numTanks}</div>
+                  <div style={{fontSize:11,color:C.m}}>{thisHa.toFixed(1)} ha · {(thisHa*wr).toFixed(0)} L water</div>
+                </div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
+                  <div>
+                    <div style={{fontSize:10,color:C.d,marginBottom:2}}>👤 Driver</div>
+                    <input placeholder="Driver name"
+                      defaultValue={tankTicks[`driver_${ti}`]||""}
+                      onBlur={e=>{const k=`driver_${ti}`;const v=e.target.value;setTankTicks(prev=>({...prev,[k]:v}));}}
+                      style={{width:"100%",background:C.deep,border:`1px solid ${C.cb}`,borderRadius:6,padding:"6px 8px",color:C.t,fontSize:12,boxSizing:"border-box"}}/>
+                  </div>
+                  <div>
+                    <div style={{fontSize:10,color:C.d,marginBottom:2}}>🕐 Mixed at</div>
+                    <input type="time"
+                      defaultValue={tankTicks[`time_${ti}`]||""}
+                      onBlur={e=>{const k=`time_${ti}`;const v=e.target.value;setTankTicks(prev=>({...prev,[k]:v}));}}
+                      style={{width:"100%",background:C.deep,border:`1px solid ${C.cb}`,borderRadius:6,padding:"6px 8px",color:C.t,fontSize:12,boxSizing:"border-box"}}/>
+                  </div>
+                </div>
+                {chems.map((ch,ci)=>{
+                  const amt=(parseFloat(ch.rate)||0)*thisHa;
+                  const unit=(ch.unit||"L/ha").replace("/ha","");
+                  const ticked=tankTicks[`${ti}_${ci}`]||false;
+                  return(
+                    <div key={ci} onClick={()=>setTankTicks(prev=>{
+                      const nv={...prev,[`${ti}_${ci}`]:!prev[`${ti}_${ci}`]};
+                      // Save to persistent storage
+                      if(tankTask){
+                        const td={...allTankData,[tankTask]:nv};
+                        setAllTankData(td);
+                        localStorage.setItem("ww_tankdata",JSON.stringify(td));
+                      }
+                      return nv;
+                    })}
+                      style={{display:"flex",alignItems:"center",gap:10,padding:8,borderRadius:8,background:ticked?"#0a2010":C.deep,marginBottom:4,cursor:"pointer",border:`1px solid ${ticked?"#2d5a3d":C.cb}`}}>
+                      <span style={{fontSize:20,minWidth:28,textAlign:"center"}}>{ticked?"✅":"☐"}</span>
+                      <div style={{flex:1}}>
+                        <div style={{fontSize:13,fontWeight:600,color:ticked?C.d:C.t,textDecoration:ticked?"line-through":"none"}}>{ch.prod}</div>
+                        <div style={{fontSize:11,color:C.d}}>{ch.rate} {ch.unit}</div>
+                      </div>
+                      <div style={{textAlign:"right"}}>
+                        <div style={{fontSize:15,fontWeight:800,color:ticked?C.g:C.b}}>{amt.toFixed(2)}</div>
+                        <div style={{fontSize:10,color:C.d}}>{unit}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // ─── DASHBOARD ───────────────────────────────────────────────────────────────
+  const Dashboard=()=>{
+    const today=DAYS[new Date().getDay()===0?6:new Date().getDay()-1];
+    const todayTasks=sched.filter(s=>!s.done&&s.day===today);
+    const actPivots=pivots.filter(p=>p.active);
+    const actHa=actPivots.reduce((s,p)=>s+(HA[p.id]||0),0);
+    return(
+      <div style={{paddingBottom:100}}>
+        <div style={{background:C.deep,border:`1px solid ${C.cb}`,borderRadius:12,padding:12,marginBottom:14}}>
+          <div style={{fontSize:12,fontWeight:900,color:C.g,letterSpacing:1,marginBottom:8}}>🌿 MULLER FARM — WAKA WAKA</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
+            {[{v:actPivots.length,l:"Running",c:C.g},{v:551,l:"Total ha",c:C.b},{v:actHa,l:"Active ha",c:C.y},{v:todayTasks.length,l:"Tasks",c:C.o,click:()=>setPage("planner")}].map(({v,l,c,click},i)=>(
+              <div key={i} style={{textAlign:"center",cursor:click?"pointer":"default"}} onClick={click}>
+                <div style={{fontSize:18,fontWeight:800,color:c}}>{v}</div>
+                <div style={{fontSize:9,color:C.d,textTransform:"uppercase"}}>{l}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {todayTasks.length>0&&<div style={{background:"#1a0f00",border:"1px solid #854d0e",borderRadius:10,padding:"10px 14px",marginBottom:12,cursor:"pointer"}} onClick={()=>changePage("planner")}>
+          <div style={{fontSize:12,fontWeight:700,color:C.y,marginBottom:4}}>📅 TODAY'S TASKS</div>
+          {todayTasks.slice(0,2).map((t,i)=><div key={i} style={{fontSize:12,color:C.m}}>
+            {t.type==="spray"?"🧪":"🌱"} {t.pivot} — {t.product} ({t.side?.replace(" Quarter","¼").replace(" Side","½").replace(" Eighth","⅛").replace("Full Circle","FC")})
+          </div>)}
+          {todayTasks.length>2&&<div style={{fontSize:11,color:C.d}}>+{todayTasks.length-2} more</div>}
+        </div>}
+        <div style={{fontSize:11,color:C.g,textTransform:"uppercase",letterSpacing:2,marginBottom:10}}>All Pivots</div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+          {pivots.map(pivot=>{
+            const pr=cp(pivot);const pct=pr?pr.pct:0;const done=pct>=100;
+            const ha=HA[pivot.id]||0;const lock=getLockout(pivot.id);const fw=getFertWarn(pivot.id);
+            const bc=lock?"#7f1d1d":fw?"#854d0e":pivot.active?(done?"#facc15":"#2d5a3d"):"#1a2e22";
+            const sc=lock?C.r:pivot.active?(done?C.y:C.g):C.d;
+            const sl=pivot.active?(done?"✓ Done":`${pct.toFixed(0)}%`):"Idle";
+            const mm=pr?(pr.mm*pct/100).toFixed(1):"0.0";
+            const fin=pr&&pct<100?pr.finish.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):"—";
+            return(
+              <div key={pivot.id} onClick={()=>{setSel(pivot.id);setPage("detail");setTab("irrigation");}}
+                style={{background:C.card,border:`1px solid ${bc}`,borderRadius:12,padding:10,cursor:"pointer"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+                  <div>
+                    <div style={{display:"flex",alignItems:"center",gap:5}}>
+                      <span style={{fontSize:15,fontWeight:900,color:C.t}}>{pivot.id}</span>
+                      <span style={{width:7,height:7,borderRadius:"50%",background:sc,display:"inline-block"}}/>
+                      {lock&&<span style={{fontSize:9,background:"#7f1d1d",color:C.r,borderRadius:4,padding:"1px 4px"}}>🔒</span>}
+                      {fw&&!lock&&<span style={{fontSize:9,background:"#854d0e",color:C.y,borderRadius:4,padding:"1px 4px"}}>💧</span>}
+                    </div>
+                    <div style={{fontSize:9,color:C.d}}>{ha}ha</div>
+                    <div style={{fontSize:9,color:sc,fontWeight:600}}>{sl}</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div style={{fontSize:20,fontWeight:900,color:sc,lineHeight:1}}>{pct.toFixed(0)}%</div>
+                    <div style={{fontSize:8,color:C.d}}>Complete</div>
+                    {pivot.active&&<div style={{fontSize:9,color:C.m}}>{pivot.speed}%spd</div>}
+                  </div>
+                </div>
+                <Circle pct={pct} mode={pivot.mode} size={52} active={pivot.active} warn={!!lock}/>
+                {pivot.active&&<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:2,marginTop:5}}>
+                  <div style={{fontSize:9,color:C.d}}>Finish: <span style={{color:C.t}}>{fin}</span></div>
+                  <div style={{fontSize:9,color:C.d}}>mm: <span style={{color:C.g}}>{mm}</span></div>
+                </div>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // ─── PLANNER ─────────────────────────────────────────────────────────────────
+  const Planner=()=>{
+    const [pt,setPt]=useState("week");
+    const handlePhoto=async(e)=>{
+      const file=e.target.files[0];if(!file)return;
+      const reader=new FileReader();
+      reader.onload=async(ev)=>{
+        const du=ev.target.result;
+        const np=[...photos,{dataUrl:du,weekLabel:`Week of ${new Date().toLocaleDateString("en-ZA")}`,uploadedAt:new Date().toISOString()}];
+        setPhotos(np);save(pivots,fertRecs,chemRecs,sched,np);
+        const cnt=await scanCal(du);if(cnt>0)setPt("week");
+      };
+      reader.readAsDataURL(file);
+    };
+
+    return(
+      <div style={{paddingBottom:100}}>
+        <div style={{display:"flex",gap:4,marginBottom:14,background:C.deep,borderRadius:10,padding:4}}>
+          {[["week","📅 Week"],["completed","✅ Done"],["photos","📸 Photos"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setPt(k)} style={{flex:1,padding:"8px 4px",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:600,background:pt===k?C.g:"transparent",color:pt===k?C.bg:C.d}}>{l}</button>
+          ))}
+        </div>
+        {pt==="week"&&<>
+          <div style={{display:"flex",gap:8,marginBottom:14}}>
+            <button onClick={()=>{setModal("sched");setForm({pivot:"P0",day:DAYS[0],schedType:"spray",side:"Full Circle"});}} style={{flex:1,background:C.p,color:C.bg,border:"none",borderRadius:10,padding:11,fontWeight:800,fontSize:13,cursor:"pointer"}}>+ Add Entry</button>
+            <button onClick={()=>fileRef.current.click()} style={{flex:1,background:aiLoad?"#374151":C.g,color:C.bg,border:"none",borderRadius:10,padding:11,fontWeight:800,fontSize:13,cursor:"pointer"}}>
+              {aiLoad?<span className="pulse">📖 Reading…</span>:<>🖼️ Upload/Scan</>}
+            </button>
+            <input ref={fileRef} type="file" accept="image/*,application/pdf" style={{display:"none"}} onChange={handlePhoto}/>
+          </div>
+          {!localStorage.getItem("ww_apikey")&&<div style={{background:"#1a0f00",border:"1px solid #854d0e",borderRadius:10,padding:12,marginBottom:12}}>
+            <div style={{fontSize:12,color:C.y,fontWeight:700,marginBottom:6}}>🔑 API Key needed for scanning</div>
+            <div style={{display:"flex",gap:6}}>
+              <input id="apikeyinput" type="password" placeholder="sk-ant-api03-..." style={{flex:1,background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"8px 10px",color:C.t,fontSize:12}}/>
+              <button onClick={()=>{const k=document.getElementById("apikeyinput").value.trim();if(k.startsWith("sk-ant")){localStorage.setItem("ww_apikey",k);window.location.reload();}else alert("Invalid key - must start with sk-ant");}} style={{background:C.g,border:"none",borderRadius:8,color:C.bg,padding:"8px 12px",fontWeight:700,fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}>Save Key</button>
+            </div>
+            <div style={{fontSize:10,color:C.d,marginTop:4}}>Get key from platform.claude.com → API Keys. Key is stored only on your phone.</div>
+          </div>}
+          {aiErr&&<div style={{background:"#1a0a0a",border:"1px solid #7f1d1d",borderRadius:10,padding:10,marginBottom:12,fontSize:12,color:C.r}}>{aiErr}</div>}
+          
+          {DAYS.map(day=>{
+            const items=sched.filter(s=>s.day===day);
+            return(
+              <div key={day} style={{marginBottom:12}}>
+                <div style={{fontSize:11,color:C.g,textTransform:"uppercase",letterSpacing:1,marginBottom:6,fontWeight:700}}>{day}</div>
+                {!items.length&&<div style={{background:C.card,border:`1px solid ${C.cb}`,borderRadius:8,padding:"10px 14px",fontSize:12,color:C.f}}>No tasks</div>}
+                {items.map(item=>{
+                  const chemList=item.chemicals&&item.chemicals.length?item.chemicals.map(ch=>(
+                    <div key={ch.prod} style={{display:"flex",justifyContent:"space-between",padding:"1px 0"}}>
+                      <span style={{fontSize:11,color:C.t}}>{ch.prod}</span>
+                      <span style={{fontSize:11,color:C.b}}>{ch.rate} {ch.unit}</span>
+                    </div>
+                  )):<div style={{fontSize:12,color:C.t}}>{item.product}</div>;
+                  return(
+                    <div key={item.id} style={{background:C.card,border:`1px solid ${item.done?"#1a2e22":C.cb}`,borderRadius:10,padding:"10px 12px",marginBottom:6,opacity:item.done?0.5:1}}>
+                      <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                        <span style={{fontSize:16}}>{item.type==="spray"?"🧪":"🌱"}</span>
+                        <div style={{flex:1}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                            <span style={{fontSize:13,fontWeight:700,color:item.type==="spray"?C.b:C.y}}>{item.pivot}</span>
+                            <span style={{fontSize:10,color:C.d}}>{item.side?.replace(" Quarter","¼").replace(" Side","½").replace(" Eighth","⅛").replace("Full Circle","FC")}</span>
+                          </div>
+                          {chemList}
+                          {item.actualNote&&<div style={{fontSize:11,color:C.o,marginTop:3,background:"#2d1000",padding:"3px 6px",borderRadius:4}}>📝 {item.actualNote}</div>}
+                          {item.type==="spread"&&!item.done&&<div style={{fontSize:10,color:C.o,marginTop:2}}>💧 Irrigate 8–10mm after</div>}
+                        </div>
+                        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                          <button onClick={()=>{
+                              const task=sched.find(s=>s.id===item.id);
+                              if(task&&!task.done){
+                                const done={...task,done:true,completedAt:new Date().toISOString()};
+                                const ns=sched.filter(s=>s.id!==item.id);
+                                const nc=[done,...completedTasks].slice(0,200);
+                                setSched(ns);setCompletedTasks(nc);
+                                save(pivots,fertRecs,chemRecs,ns,photos,irrigHist,schedIrrig);
+                                localStorage.setItem("ww_completed",JSON.stringify(nc));
+                              }
+                            }}
+                            style={{background:item.done?"#2d5a3d":C.deep,border:`1px solid ${item.done?C.g:C.cb}`,color:item.done?C.g:C.d,borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>
+                            {item.done?"✓":"Done"}
+                          </button>
+                          <div style={{display:"flex",gap:3}}>
+                            <button onClick={()=>setEditSched(item)} style={{background:C.deep,border:`1px solid ${C.cb}`,color:C.p,borderRadius:6,padding:"3px 7px",fontSize:11,cursor:"pointer"}}>✏️</button>
+                            {item.type==="spray"&&<button onClick={()=>{setTankTask(item.id);setTankTicks(allTankData[item.id]||{});}} style={{background:"#2d2000",border:"1px solid #854d0e",color:C.y,borderRadius:6,padding:"3px 7px",fontSize:11,fontWeight:700,cursor:"pointer"}}>🧮</button>}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        {deletedSched.length>0&&<div style={{marginTop:16,background:"#1a0a0a",border:"1px solid #374151",borderRadius:12,padding:12}}>
+          <div style={{fontSize:12,color:C.d,fontWeight:700,marginBottom:8}}>🗑 Recently Deleted ({deletedSched.length})</div>
+          {deletedSched.map(item=>(
+            <div key={item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid #1e3a2f`}}>
+              <div>
+                <span style={{fontSize:12,color:C.d}}>{item.type==="spray"?"🧪":"🌱"} </span>
+                <span style={{fontSize:12,color:"#6b7280"}}>{item.pivot} — {item.day} — {item.product}</span>
+              </div>
+              <button onClick={()=>{
+                const ns=[...sched,item];
+                const nd=deletedSched.filter(d=>d.id!==item.id);
+                setSched(ns);setDeletedSched(nd);
+                save(pivots,fertRecs,chemRecs,ns,photos,irrigHist,schedIrrig);
+              }} style={{background:"#0d2018",border:`1px solid ${C.g}`,color:C.g,borderRadius:8,padding:"5px 10px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>↩ Restore</button>
+            </div>
+          ))}
+          <button onClick={()=>setDeletedSched([])} style={{marginTop:8,width:"100%",background:"transparent",border:`1px solid #374151`,color:"#6b7280",borderRadius:8,padding:8,fontSize:11,cursor:"pointer"}}>Clear Bin</button>
+        </div>}
+        </>}
+        {pt==="completed"&&<div>
+          {!completedTasks.length&&<div style={{color:C.d,textAlign:"center",padding:32}}>
+            <div style={{fontSize:32,marginBottom:8}}>✅</div>
+            <div>No completed tasks yet</div>
+            <div style={{fontSize:12,marginTop:4}}>Tasks move here when marked Done</div>
+          </div>}
+          {completedTasks.map(item=>(
+            <div key={item.id} style={{background:C.card,border:`1px solid #2d5a3d`,borderRadius:10,padding:"10px 12px",marginBottom:6,opacity:0.8}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                <span style={{fontSize:16}}>{item.type==="spray"?"🧪":"🌱"}</span>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",gap:6,marginBottom:2,flexWrap:"wrap"}}>
+                    <span style={{fontSize:13,fontWeight:700,color:item.type==="spray"?C.b:C.y}}>{item.pivot}</span>
+                    <span style={{fontSize:10,color:C.d}}>{item.day}</span>
+                    <span style={{fontSize:10,color:C.g}}>✓ {item.completedAt?new Date(item.completedAt).toLocaleDateString("en-ZA",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}):""}</span>
+                  </div>
+                  {item.chemicals&&item.chemicals.length?item.chemicals.map(ch=>(
+                    <div key={ch.prod} style={{display:"flex",justifyContent:"space-between"}}>
+                      <span style={{fontSize:11,color:C.t}}>{ch.prod}</span>
+                      <span style={{fontSize:11,color:C.b}}>{ch.rate} {ch.unit}</span>
+                    </div>
+                  )):<div style={{fontSize:12,color:C.t}}>{item.product}</div>}
+                </div>
+                <button onClick={()=>{
+                  const ns=[...sched,{...item,done:false,completedAt:null}];
+                  const nc=completedTasks.filter(t=>t.id!==item.id);
+                  setSched(ns);setCompletedTasks(nc);
+                  save(pivots,fertRecs,chemRecs,ns,photos,irrigHist,schedIrrig);
+                  localStorage.setItem("ww_completed",JSON.stringify(nc));
+                }} style={{background:C.deep,border:`1px solid ${C.cb}`,color:C.d,borderRadius:8,padding:"5px 8px",fontSize:10,cursor:"pointer"}}>↩</button>
+              </div>
+            </div>
+          ))}
+          {completedTasks.length>0&&<button onClick={()=>{setCompletedTasks([]);localStorage.removeItem("ww_completed");}} style={{width:"100%",background:"transparent",border:`1px solid #374151`,color:C.d,borderRadius:8,padding:10,fontSize:12,cursor:"pointer",marginTop:8}}>Clear All Completed</button>}
+        </div>}
+        {pt==="photos"&&<>
+          <button onClick={()=>fileRef.current.click()} style={{width:"100%",background:aiLoad?"#374151":C.g,color:C.bg,border:"none",borderRadius:10,padding:13,fontWeight:800,fontSize:14,cursor:"pointer",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+            {aiLoad?<span className="pulse">📸 Reading with AI…</span>:<>📸 Take / Upload Calendar Photo</>}
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" style={{display:"none"}} onChange={handlePhoto}/>
+          {!localStorage.getItem("ww_apikey")&&<div style={{background:"#1a0f00",border:"1px solid #854d0e",borderRadius:10,padding:12,marginBottom:12}}>
+            <div style={{fontSize:12,color:C.y,fontWeight:700,marginBottom:6}}>🔑 API Key needed for scanning</div>
+            <div style={{display:"flex",gap:6}}>
+              <input id="apikeyinput" type="password" placeholder="sk-ant-api03-..." style={{flex:1,background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"8px 10px",color:C.t,fontSize:12}}/>
+              <button onClick={()=>{const k=document.getElementById("apikeyinput").value.trim();if(k.startsWith("sk-ant")){localStorage.setItem("ww_apikey",k);window.location.reload();}else alert("Invalid key - must start with sk-ant");}} style={{background:C.g,border:"none",borderRadius:8,color:C.bg,padding:"8px 12px",fontWeight:700,fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}>Save Key</button>
+            </div>
+            <div style={{fontSize:10,color:C.d,marginTop:4}}>Get key from platform.claude.com → API Keys. Key is stored only on your phone.</div>
+          </div>}
+          {aiErr&&<div style={{background:"#1a0a0a",border:"1px solid #7f1d1d",borderRadius:10,padding:10,marginBottom:12,fontSize:12,color:C.r}}>{aiErr}</div>}
+          
+          {!photos.length&&<div style={{background:C.card,border:`1px solid ${C.cb}`,borderRadius:12,padding:32,textAlign:"center"}}>
+            <div style={{fontSize:32,marginBottom:8}}>📸</div>
+            <div style={{color:C.d,fontSize:14}}>No calendar photos yet</div>
+            <div style={{color:C.f,fontSize:12,marginTop:4}}>Take a photo of the weekly calendar and AI will read the schedule automatically</div>
+          </div>}
+          {[...photos].reverse().map((p,i)=>(
+            <div key={i} style={{background:C.card,border:`1px solid ${C.cb}`,borderRadius:12,overflow:"hidden",marginBottom:12}}>
+              <img src={p.dataUrl} style={{width:"100%",maxHeight:220,objectFit:"cover"}} alt="Calendar"/>
+              <div style={{padding:"10px 14px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:700,color:C.t}}>{p.weekLabel}</div>
+                  <div style={{fontSize:11,color:C.d}}>{new Date(p.uploadedAt).toLocaleString("en-ZA")}</div>
+                </div>
+                <button onClick={async()=>{const cnt=await scanCal(p.dataUrl);if(cnt>0)setPt("week");}} style={{background:C.deep,border:`1px solid ${C.cb}`,color:C.b,borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>Re-scan</button>
+              </div>
+            </div>
+          ))}
+        </>}
+      </div>
+    );
+  };
+
+  // ─── PIVOT DETAIL ────────────────────────────────────────────────────────────
+  const Detail=()=>{
+    const pivot=pivots.find(p=>p.id===sel);
+    if(!pivot)return null;
+    const pr=cp(pivot);const ha=HA[pivot.id]||0;
+    const lock=getLockout(pivot.id);const fw=getFertWarn(pivot.id);
+    const pFert=fertRecs.filter(r=>r.pivot===pivot.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const pChem=chemRecs.filter(r=>r.pivot===pivot.id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+    const pSched=sched.filter(s=>s.pivot===pivot.id).sort((a,b)=>DAYS.indexOf(a.day)-DAYS.indexOf(b.day));
+
+    return(
+      <div style={{paddingBottom:100}}>
+        <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:14}}>
+          <Circle pct={pr?pr.pct:0} mode={pivot.mode} size={90} active={pivot.active} warn={!!lock}/>
+          <div>
+            <div style={{fontSize:32,fontWeight:900,color:C.t,fontFamily:"Georgia,serif"}}>{pivot.id}</div>
+            <div style={{fontSize:13,fontWeight:600,color:C.b}}>{ha} hectares</div>
+            <div style={{fontSize:12,color:pivot.active?C.g:C.d}}>{pivot.active?(pr&&pr.pct>=100?"✓ Complete":"● Active"):"Idle"}</div>
+            {pivot.active&&pr&&<div style={{fontSize:11,color:C.m}}>{pivot.mode} · {pivot.speed}%</div>}
+          </div>
+        </div>
+
+        <div style={{display:"flex",gap:4,marginBottom:14,overflowX:"auto",paddingBottom:2}}>
+          {[["irrigation","💧 Irrig"],["irrigHist","📈 Hist"],["fertilizer","🌾 Fert"],["chemical","🧪 Chem"],["program","📋 Program"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setTab(k)} style={{flex:"0 0 auto",padding:"8px 14px",borderRadius:8,border:"none",cursor:"pointer",fontSize:11,fontWeight:600,whiteSpace:"nowrap",background:tab===k?C.g:C.deep,color:tab===k?C.bg:C.d}}>{l}</button>
+          ))}
+        </div>
+
+        {tab==="irrigation"&&<div>
+          {lock&&<div style={{background:"#1a0a0a",border:"1px solid #7f1d1d",borderRadius:10,padding:"10px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.r}}>🔒 Spray Lockout: {lock.h}h remaining</div>
+            <button onClick={()=>{const nc=chemRecs.map(r=>r.pivot===pivot.id&&r.sprayTime?{...r,lockoutHrs:0,sprayTime:null}:r);setChemRecs(nc);save(pivots,fertRecs,nc,sched,photos,irrigHist);}} style={{background:"#7f1d1d",border:"none",color:C.r,borderRadius:8,padding:"6px 12px",fontSize:11,cursor:"pointer"}}>✕ Clear</button>
+          </div>}
+          {fw&&<div style={{background:"#1a0f00",border:"1px solid #854d0e",borderRadius:10,padding:"10px 14px",marginBottom:12}}>
+            <div style={{fontSize:12,color:C.y,fontWeight:700}}>💧 Fertilizer pending irrigation on {fw.side}</div>
+          </div>}
+          {pivot.active&&pr?<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:14}}>
+            {[{l:"Progress",v:`${pr.pct.toFixed(1)}%`},{l:"Speed",v:`${pivot.speed}%`},{l:"Elapsed",v:`${pr.el.toFixed(1)} hrs`},{l:"Remaining",v:`${pr.rem.toFixed(1)} hrs`},{l:"Total Runtime",v:`${pr.totalHrs.toFixed(1)} hrs`},{l:"mm Applied",v:`${(pr.mm*pr.pct/100).toFixed(1)} mm`},{l:"Total Water",v:`${((pr.mm*pr.pct/100)*ha*10).toFixed(0)} m³`},{l:"Est. Finish",v:pr.finish.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}].map(s=>(
+              <div key={s.l} style={{background:C.card,border:`1px solid ${C.cb}`,borderRadius:10,padding:"10px 12px"}}>
+                <div style={{fontSize:16,fontWeight:700,color:C.g}}>{s.v}</div>
+                <div style={{fontSize:10,color:C.d,textTransform:"uppercase",letterSpacing:0.8}}>{s.l}</div>
+              </div>
+            ))}
+            <div style={{gridColumn:"1/-1",background:C.card,border:`1px solid ${C.cb}`,borderRadius:10,padding:"10px 12px",display:"flex",justifyContent:"space-between"}}>
+              <div><div style={{fontSize:11,color:C.d}}>Started</div><div style={{fontSize:13,fontWeight:700,color:C.g}}>{new Date(pivot.startTime).toLocaleDateString("en-ZA",{day:"2-digit",month:"short"})} {new Date(pivot.startTime).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</div></div>
+              <div style={{textAlign:"right"}}><div style={{fontSize:11,color:C.d}}>Est. Stop</div><div style={{fontSize:13,fontWeight:700,color:C.y}}>{pr.finish.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</div></div>
+            </div>
+          </div>:<div style={{background:C.card,border:`1px solid ${C.cb}`,borderRadius:12,padding:24,textAlign:"center",marginBottom:14}}>
+            <div style={{color:C.d,fontSize:14}}>Pivot is idle</div>
+          </div>}
+          {!pivot.active?
+            <button onClick={()=>{setModal("start");setForm({pivotId:pivot.id,speed:100,mode:fw?fw.side:"Full Circle",startTime:new Date().toISOString().slice(0,16)});}}
+                style={{width:"100%",background:lock?"#7f1d1d":fw?"#854d0e":C.g,color:lock||fw?"#fff":C.bg,border:"none",borderRadius:10,padding:13,fontWeight:800,fontSize:14,cursor:"pointer",marginBottom:8}}>
+                {lock?"⚠️ Start (Lockout Active)":fw?"💧 Start (Fert Pending)":"▶ Start Irrigation"}
+            </button>
+            :<button onClick={()=>stopIrrig(pivot.id)} style={{width:"100%",background:"#ef4444",color:"#fff",border:"none",borderRadius:10,padding:13,fontWeight:800,fontSize:14,cursor:"pointer",marginBottom:8}}>■ Stop Irrigation</button>
+          }
+          <button onClick={()=>{setModal("schedIrrig");setForm({pivotId:pivot.id,speed:100,mode:"Full Circle",scheduledTime:new Date(Date.now()+3600000).toISOString().slice(0,16)});}}
+            style={{width:"100%",background:"#1e3a5f",color:C.b,border:`1px solid #2d4a7f`,borderRadius:10,padding:12,fontWeight:800,fontSize:14,cursor:"pointer",marginBottom:8}}>
+            🕐 Schedule Future Irrigation ({schedIrrig.filter(s=>s.pivot===pivot.id&&!s.started).length})
+          </button>
+          {schedIrrig.filter(s=>s.pivot===pivot.id&&!s.started).map(s=>(
+            <div key={s.id} style={{background:"#0a1020",border:"1px solid #2d4a7f",borderRadius:10,padding:"10px 14px",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:12,fontWeight:700,color:C.b}}>🕐 {new Date(s.scheduledTime).toLocaleDateString("en-ZA",{day:"2-digit",month:"short"})} {new Date(s.scheduledTime).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</div>
+                <div style={{fontSize:11,color:C.m}}>{s.mode} · {s.speed}%</div>
+              </div>
+              <button onClick={()=>{const ns=schedIrrig.filter(x=>x.id!==s.id);setSchedIrrig(ns);save(pivots,fertRecs,chemRecs,sched,photos,irrigHist,ns);}} style={{background:"#7f1d1d",border:"none",color:C.r,borderRadius:8,padding:"5px 10px",fontSize:11,cursor:"pointer"}}>✕</button>
+            </div>
+          ))}
+        </div>}
+
+        {tab==="irrigHist"&&<div>
+          {(()=>{
+            const hist=(irrigHist[pivot.id]||[]);
+            const totalMm=hist.reduce((s,h)=>s+parseFloat(h.mmApplied||0),0).toFixed(1);
+            const totalM3=hist.reduce((s,h)=>s+parseFloat(h.m3||0),0).toFixed(0);
+            const seasons=[...new Set(hist.map(h=>h.season))];
+            return(<>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+                <div style={{background:C.deep,borderRadius:10,padding:10,textAlign:"center"}}>
+                  <div style={{fontSize:20,fontWeight:800,color:C.g}}>{hist.length}</div>
+                  <div style={{fontSize:10,color:C.d}}>Total Runs</div>
+                </div>
+                <div style={{background:C.deep,borderRadius:10,padding:10,textAlign:"center"}}>
+                  <div style={{fontSize:16,fontWeight:800,color:C.b}}>{totalMm}</div>
+                  <div style={{fontSize:10,color:C.d}}>mm Total</div>
+                </div>
+                <div style={{background:C.deep,borderRadius:10,padding:10,textAlign:"center"}}>
+                  <div style={{fontSize:16,fontWeight:800,color:C.p}}>{totalM3}</div>
+                  <div style={{fontSize:10,color:C.d}}>m³ Total</div>
+                </div>
+              </div>
+              {!hist.length&&<div style={{color:C.d,textAlign:"center",padding:24}}>No irrigation history yet.<br/><span style={{fontSize:12}}>Runs are logged when you stop irrigation.</span></div>}
+              {seasons.map(season=>{
+                const runs=hist.filter(h=>h.season===season);
+                const sMm=runs.reduce((s,h)=>s+parseFloat(h.mmApplied||0),0).toFixed(1);
+                return(<div key={season} style={{marginBottom:14}}>
+                  <div style={{fontSize:11,color:C.p,textTransform:"uppercase",letterSpacing:1,marginBottom:6}}>{season} — {runs.length} runs · {sMm} mm</div>
+                  {runs.map(h=>(
+                    <div key={h.id} style={{background:C.card,border:`1px solid ${C.cb}`,borderRadius:10,padding:"10px 12px",marginBottom:6}}>
+                      <div style={{display:"flex",justifyContent:"space-between",marginBottom:2}}>
+                        <div style={{fontSize:12,fontWeight:700,color:C.g}}>{h.startTime?new Date(h.startTime).toLocaleDateString("en-ZA",{day:"2-digit",month:"short"}):""}</div>
+                        <div style={{fontSize:11,color:C.d}}>{h.mmApplied} mm · {h.m3} m³</div>
+                      </div>
+                      <div style={{fontSize:11,color:C.m}}>{h.mode} · {h.speed}% · {h.pct}% complete</div>
+                      <div style={{fontSize:10,color:C.d}}>{h.startTime?new Date(h.startTime).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):""} → {h.stopTime?new Date(h.stopTime).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):""}</div>
+                    </div>
+                  ))}
+                </div>);
+              })}
+            </>);
+          })()}
+        </div>}
+
+        {tab==="fertilizer"&&<div>
+          <button onClick={()=>{setModal("fert");setForm({date:new Date().toISOString().slice(0,10),side:"Full Circle"});}} style={{width:"100%",background:C.y,color:C.bg,border:"none",borderRadius:10,padding:12,fontWeight:800,fontSize:14,cursor:"pointer",marginBottom:14}}>+ Add Fertilizer Record</button>
+          {!pFert.length&&<div style={{color:C.d,textAlign:"center",padding:24}}>No fertilizer records yet</div>}
+          {pFert.map((r,i)=>(
+            <div key={i} style={{background:C.card,border:`1px solid ${r.needsIrrigation&&!r.irrigated?"#854d0e":C.cb}`,borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div style={{fontWeight:700,color:C.y,fontSize:14}}>{r.product}</div>
+                <div style={{fontSize:11,color:C.d}}>{r.date}</div>
+              </div>
+              <div style={{fontSize:12,color:C.m,marginTop:2}}>{r.rate} kg/ha · {r.totalKg} kg · {r.side}</div>
+              {r.needsIrrigation&&!r.irrigated&&<div style={{fontSize:11,color:C.o,marginTop:2}}>💧 Needs 8–10mm irrigation on {r.side}</div>}
+              {r.irrigated&&<div style={{fontSize:11,color:C.g,marginTop:2}}>✓ Irrigated {r.irrigatedAt?new Date(r.irrigatedAt).toLocaleDateString("en-ZA"):""}</div>}
+              {r.operator&&<div style={{fontSize:11,color:C.d}}>👤 {r.operator}</div>}
+            </div>
+          ))}
+        </div>}
+
+        {tab==="chemical"&&<div>
+          <button onClick={()=>{setModal("chem");setForm({date:new Date().toISOString().slice(0,10),type:"Fungicide",lockHrs:"24"});}} style={{width:"100%",background:C.b,color:C.bg,border:"none",borderRadius:10,padding:12,fontWeight:800,fontSize:14,cursor:"pointer",marginBottom:14}}>+ Add Chemical Record</button>
+          {!pChem.length&&<div style={{color:C.d,textAlign:"center",padding:24}}>No chemical records yet</div>}
+          {pChem.map((r,i)=>{
+            const lh=r.lockoutHrs!==undefined?r.lockoutHrs:24;
+            const el=r.sprayTime?(Date.now()-new Date(r.sprayTime).getTime())/3600000:999;
+            const active=lh>0&&el<lh;
+            return(
+              <div key={i} style={{background:C.card,border:`1px solid ${active?"#7f1d1d":C.cb}`,borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{fontWeight:700,color:C.b,fontSize:14}}>{r.product}</div>
+                  <div style={{fontSize:11,color:C.d}}>{r.date}</div>
+                </div>
+                <div style={{fontSize:12,color:C.m,marginTop:2}}>{r.type} · {r.rate}</div>
+                <div style={{fontSize:11,color:C.d}}>🔒 Lockout: {lh===0?"None":`${lh}h`}</div>
+                {active&&<div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:4}}>
+                  <div style={{fontSize:11,color:C.r}}>🔒 {(lh-el).toFixed(1)}h remaining</div>
+                  <button onClick={()=>{const nc=chemRecs.map(rc=>rc.id===r.id?{...rc,lockoutHrs:0,sprayTime:null}:rc);setChemRecs(nc);save(pivots,fertRecs,nc,sched,photos,irrigHist);}} style={{background:"#7f1d1d",border:"none",color:C.r,borderRadius:6,padding:"2px 8px",fontSize:10,cursor:"pointer"}}>✕ Clear</button>
+                </div>}
+                {r.operator&&<div style={{fontSize:11,color:C.d}}>👤 {r.operator}</div>}
+              </div>
+            );
+          })}
+        </div>}
+
+        {tab==="program"&&<div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:14}}>
+            {[{v:pSched.filter(t=>t.type==="spray").length,l:"Sprays",c:C.b},{v:pSched.filter(t=>t.type==="spread").length,l:"Spreads",c:C.y},{v:pSched.filter(t=>t.done).length,l:"Done",c:C.g}].map(({v,l,c},i)=>(
+              <div key={i} style={{background:C.deep,borderRadius:10,padding:10,textAlign:"center"}}>
+                <div style={{fontSize:20,fontWeight:800,color:c}}>{v}</div>
+                <div style={{fontSize:10,color:C.d}}>{l}</div>
+              </div>
+            ))}
+          </div>
+          {!pSched.length&&<div style={{color:C.d,textAlign:"center",padding:24}}>No tasks scheduled for {pivot.id}</div>}
+          {pSched.map(item=>(
+            <div key={item.id} style={{background:C.card,border:`1px solid ${item.done?"#1a2e22":C.cb}`,borderRadius:10,padding:"10px 12px",marginBottom:6,opacity:item.done?0.5:1}}>
+              <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+                <span style={{fontSize:16}}>{item.type==="spray"?"🧪":"🌱"}</span>
+                <div style={{flex:1}}>
+                  <div style={{display:"flex",gap:6,marginBottom:2}}>
+                    <span style={{fontSize:13,fontWeight:700,color:item.type==="spray"?C.b:C.y}}>{item.day}</span>
+                    <span style={{fontSize:10,color:C.d}}>{item.side?.replace(" Quarter","¼").replace(" Side","½")}</span>
+                    {item.done&&<span style={{fontSize:10,color:C.g}}>✓</span>}
+                  </div>
+                  {item.chemicals&&item.chemicals.length?item.chemicals.map(ch=>(
+                    <div key={ch.prod} style={{display:"flex",justifyContent:"space-between"}}>
+                      <span style={{fontSize:11,color:C.t}}>{ch.prod}</span>
+                      <span style={{fontSize:11,color:C.b}}>{ch.rate} {ch.unit}</span>
+                    </div>
+                  )):<div style={{fontSize:12,color:C.t}}>{item.product}</div>}
+                  {item.actualNote&&<div style={{fontSize:11,color:C.o,background:"#2d1000",padding:"2px 6px",borderRadius:4,marginTop:2}}>📝 {item.actualNote}</div>}
+                </div>
+                <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                  <button onClick={()=>{
+                              const task=sched.find(s=>s.id===item.id);
+                              if(task&&!task.done){
+                                const done={...task,done:true,completedAt:new Date().toISOString()};
+                                const ns=sched.filter(s=>s.id!==item.id);
+                                const nc=[done,...completedTasks].slice(0,200);
+                                setSched(ns);setCompletedTasks(nc);
+                                save(pivots,fertRecs,chemRecs,ns,photos,irrigHist,schedIrrig);
+                                localStorage.setItem("ww_completed",JSON.stringify(nc));
+                              }
+                            }}
+                    style={{background:item.done?"#2d5a3d":C.deep,border:`1px solid ${item.done?C.g:C.cb}`,color:item.done?C.g:C.d,borderRadius:8,padding:"5px 10px",fontSize:11,fontWeight:600,cursor:"pointer"}}>{item.done?"✓":"Done"}</button>
+                  <button onClick={()=>setEditSched(item)} style={{background:C.deep,border:`1px solid ${C.cb}`,color:C.p,borderRadius:6,padding:"3px 7px",fontSize:11,cursor:"pointer"}}>✏️</button>
+                  {item.type==="spray"&&<button onClick={()=>{setTankTask(item.id);setTankTicks(allTankData[item.id]||{});}} style={{background:"#2d2000",border:"1px solid #854d0e",color:C.y,borderRadius:6,padding:"3px 7px",fontSize:11,cursor:"pointer"}}>🧮</button>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>}
+      </div>
+    );
+  };
+
+  // ─── RECORDS ─────────────────────────────────────────────────────────────────
+  const Records=()=>{
+    const exportData=()=>{
+      const d={version:2,exportedAt:new Date().toISOString(),pivots,fertRecs,chemRecs,sched,photos,irrigHist};
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:"application/json"}));
+      a.download=`WakaWaka_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();
+    };
+    const importData=()=>{
+      const i=document.createElement("input");i.type="file";i.accept=".json";
+      i.onchange=e=>{
+        const reader=new FileReader();
+        reader.onload=ev=>{
+          try{
+            const d=JSON.parse(ev.target.result);
+            // Support old backup format (schedule/irrigHistory) and new format (sched/irrigHist)
+            const schedData=d.sched||d.schedule||[];
+            const fertData=d.fertRecs||[];
+            const chemData=d.chemRecs||[];
+            const pivData=d.pivots||[];
+            const phData=d.photos||d.calPhotos||[];
+            const ihData=d.irrigHist||d.irrigHistory||{};
+            if(pivData.length)setPivots(pivData);
+            if(fertData.length)setFertRecs(fertData);
+            if(chemData.length)setChemRecs(chemData);
+            if(schedData.length)setSched(schedData);
+            if(phData.length)setPhotos(phData);
+            if(Object.keys(ihData).length)setIrrigHist(ihData);
+            save(pivData.length?pivData:pivots,fertData.length?fertData:fertRecs,chemData.length?chemData:chemRecs,schedData.length?schedData:sched,phData.length?phData:photos,Object.keys(ihData).length?ihData:irrigHist);
+            const parts=[];
+            if(pivData.length)parts.push(pivData.length+" pivots");
+            if(fertData.length)parts.push(fertData.length+" fert records");
+            if(chemData.length)parts.push(chemData.length+" chem records");
+            if(schedData.length)parts.push(schedData.length+" schedule tasks");
+            alert("✅ Imported:\n"+(parts.length?parts.join("\n"):"No matching data found in backup file"));
+          }catch(err){alert("❌ Could not read file: "+err.message);}
+        };
+        reader.readAsText(e.target.files[0]);
+      };i.click();
+    };
+    return(
+      <div style={{paddingBottom:100}}>
+        <div style={{display:"flex",gap:8,marginBottom:8}}>
+          <button onClick={exportData} style={{flex:1,background:C.deep,border:`1px solid ${C.cb}`,color:C.g,borderRadius:10,padding:10,fontWeight:700,fontSize:12,cursor:"pointer"}}>📤 Export Data</button>
+          <button onClick={importData} style={{flex:1,background:C.deep,border:`1px solid ${C.cb}`,color:C.b,borderRadius:10,padding:10,fontWeight:700,fontSize:12,cursor:"pointer"}}>📥 Import Data</button>
+        </div>
+        <div style={{background:"#1a0f00",border:`1px solid #854d0e`,borderRadius:10,padding:12,marginBottom:14}}>
+          <div style={{fontSize:12,color:C.y,fontWeight:700,marginBottom:6}}>🔑 Scan API Key {localStorage.getItem("ww_apikey")?"✅ Set":"❌ Not set"}</div>
+          <div style={{display:"flex",gap:6,marginBottom:6}}>
+            <input id="apikeyinput2" type="password" defaultValue={localStorage.getItem("ww_apikey")||""} placeholder="sk-ant-api03-..." style={{flex:1,background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"8px 10px",color:C.t,fontSize:12}}/>
+            <button onClick={()=>{const k=document.getElementById("apikeyinput2").value.trim();if(k){localStorage.setItem("ww_apikey",k);alert("✅ API key saved! Scanning will now work.");} else {localStorage.removeItem("ww_apikey");alert("API key cleared");}}} style={{background:C.g,border:"none",borderRadius:8,color:C.bg,padding:"8px 12px",fontWeight:700,fontSize:12,cursor:"pointer",whiteSpace:"nowrap"}}>Save</button>
+          </div>
+          <div style={{fontSize:10,color:C.d}}>Get from platform.claude.com → API Keys. Stored only on this device.</div>
+        </div>
+        <div style={{display:"flex",gap:4,marginBottom:14,background:C.deep,borderRadius:10,padding:4}}>
+          {[["fert","Fertilizer"],["chem","Chemical"]].map(([k,l])=>(
+            <button key={k} onClick={()=>setRecTab(k)} style={{flex:1,padding:"8px 4px",borderRadius:8,border:"none",cursor:"pointer",fontSize:12,fontWeight:600,background:recTab===k?C.g:"transparent",color:recTab===k?C.bg:C.d}}>{l}</button>
+          ))}
+        </div>
+        {recTab==="fert"&&<>
+          <button onClick={()=>{setModal("fertG");setForm({date:new Date().toISOString().slice(0,10),pivot:"P0",side:"Full Circle"});}} style={{width:"100%",background:C.y,color:C.bg,border:"none",borderRadius:10,padding:12,fontWeight:800,fontSize:14,cursor:"pointer",marginBottom:14}}>+ Add Fertilizer Record</button>
+          {!fertRecs.length&&<div style={{color:C.d,textAlign:"center",padding:24}}>No records yet</div>}
+          {[...fertRecs].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((r,i)=>(
+            <div key={i} style={{background:C.card,border:`1px solid ${r.needsIrrigation&&!r.irrigated?"#854d0e":C.cb}`,borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <div style={{fontWeight:700,color:C.y}}>{r.product}</div>
+                <div style={{fontSize:11,color:C.d}}>{r.date}</div>
+              </div>
+              <div style={{fontSize:12,color:C.m}}>{r.pivot} · {r.rate} kg/ha · {r.totalKg} kg · {r.side}</div>
+              {r.needsIrrigation&&!r.irrigated&&<div style={{fontSize:11,color:C.o}}>💧 Needs irrigation on {r.side}</div>}
+              {r.irrigated&&<div style={{fontSize:11,color:C.g}}>✓ Irrigated</div>}
+            </div>
+          ))}
+        </>}
+        {recTab==="chem"&&<>
+          <button onClick={()=>{setModal("chemG");setForm({date:new Date().toISOString().slice(0,10),pivot:"P0",type:"Fungicide",lockHrs:"24"});}} style={{width:"100%",background:C.b,color:C.bg,border:"none",borderRadius:10,padding:12,fontWeight:800,fontSize:14,cursor:"pointer",marginBottom:14}}>+ Add Chemical Record</button>
+          {!chemRecs.length&&<div style={{color:C.d,textAlign:"center",padding:24}}>No records yet</div>}
+          {[...chemRecs].sort((a,b)=>new Date(b.date)-new Date(a.date)).map((r,i)=>(
+            <div key={i} style={{background:C.card,border:`1px solid ${C.cb}`,borderRadius:10,padding:"12px 14px",marginBottom:8}}>
+              <div style={{display:"flex",justifyContent:"space-between"}}>
+                <div style={{fontWeight:700,color:C.b}}>{r.product}</div>
+                <div style={{fontSize:11,color:C.d}}>{r.date}</div>
+              </div>
+              <div style={{fontSize:12,color:C.m}}>{r.pivot} · {r.type} · {r.rate}</div>
+            </div>
+          ))}
+        </>}
+      </div>
+    );
+  };
+
+  // ─── SPEED TABLES ────────────────────────────────────────────────────────────
+  const Tables=()=>{
+    const tbl=SD[tblP];
+    return(
+      <div style={{paddingBottom:100}}>
+        <div style={{overflowX:"auto",marginBottom:12}}>
+          <div style={{display:"flex",gap:6,paddingBottom:4}}>
+            {PN.map(p=><button key={p} onClick={()=>setTblP(p)} style={{padding:"6px 12px",borderRadius:8,border:tblP===p?"none":`1px solid ${C.cb}`,cursor:"pointer",fontSize:12,fontWeight:600,whiteSpace:"nowrap",background:tblP===p?C.g:C.card,color:tblP===p?C.bg:C.d}}>{p}</button>)}
+          </div>
+        </div>
+        <div style={{background:C.card,borderRadius:12,border:`1px solid ${C.cb}`,overflow:"hidden"}}>
+          <div style={{padding:"12px 16px",background:C.deep,borderBottom:`1px solid ${C.cb}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{fontSize:16,fontWeight:800,color:C.t}}>{tblP}</div>
+            <div style={{fontSize:13,fontWeight:700,color:C.b}}>{HA[tblP]} ha</div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 60px",background:C.deep,padding:"8px 16px",borderBottom:`1px solid ${C.cb}`}}>
+            {["Speed","mm/rev","hrs/rev","Start"].map(h=><div key={h} style={{fontSize:11,color:C.g,fontWeight:700,textTransform:"uppercase",letterSpacing:0.8}}>{h}</div>)}
+          </div>
+          {SPD.map((spd,i)=>{
+            const d=tbl[spd];
+            return(
+              <div key={spd} style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 60px",padding:"9px 16px",borderTop:`1px solid ${C.cb}`,background:i%2===0?C.card:"#0d1f14"}}>
+                <div style={{color:C.t,fontWeight:spd===100?700:400}}>{spd}%</div>
+                <div style={{color:C.b}}>{d.mm}</div>
+                <div style={{color:C.m}}>{d.hrs}</div>
+                <button onClick={()=>{setModal("start");setForm({pivotId:tblP,speed:String(spd),mode:"Full Circle",startTime:new Date().toISOString().slice(0,16)});}} style={{background:C.deep,border:`1px solid ${C.cb}`,color:C.g,borderRadius:6,padding:"3px 6px",fontSize:10,cursor:"pointer"}}>▶</button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  // ─── MAP ─────────────────────────────────────────────────────────────────────
+  const Map=()=>{
+    const [pins,setPinsState]=useState(()=>{
+      try{const p=localStorage.getItem("ww_pins");return p?JSON.parse(p):{}}catch(e){return{};}
+    });
+    const [selPin,setSelPin]=useState("P0");
+    const [lat,setLat]=useState("");const [lng,setLng]=useState("");
+
+    const savePin=()=>{
+      const la=parseFloat(lat),lo=parseFloat(lng);
+      if(isNaN(la)||isNaN(lo)){alert("Enter valid coordinates");return;}
+      const np={...pins,[selPin]:{lat:la,lng:lo}};
+      setPinsState(np);localStorage.setItem("ww_pins",JSON.stringify(np));
+      setLat("");setLng("");
+      alert(`✅ ${selPin} pinned at ${la.toFixed(4)}, ${lo.toFixed(4)}`);
+    };
+
+    const pinList=Object.entries(pins);
+    return(
+      <div style={{paddingBottom:100}}>
+        <div style={{background:C.deep,border:`1px solid ${C.cb}`,borderRadius:10,padding:12,marginBottom:12}}>
+          <div style={{fontSize:12,fontWeight:700,color:C.g,marginBottom:8}}>📍 Pinned Pivots ({pinList.length}/13)</div>
+          {!pinList.length&&<div style={{color:C.d,fontSize:12}}>No pivots pinned yet</div>}
+          {pinList.map(([pid,p])=>{
+            const piv=pivots.find(pp=>pp.id===pid);const pr=piv?cp(piv):null;
+            return<div key={pid} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:`1px solid ${C.cb}`}}>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <span style={{width:8,height:8,borderRadius:"50%",background:piv?.active?C.g:C.d,display:"inline-block"}}/>
+                <span style={{fontWeight:700,color:C.t,fontSize:13}}>{pid}</span>
+                <span style={{fontSize:11,color:C.d}}>{piv?.active?`${pr?pr.pct.toFixed(0):0}%`:"Idle"}</span>
+              </div>
+              <div style={{fontSize:10,color:C.m}}>{p.lat.toFixed(4)}, {p.lng.toFixed(4)}</div>
+            </div>;
+          })}
+        </div>
+        <div style={{background:C.deep,border:`1px solid ${C.cb}`,borderRadius:10,padding:12,marginBottom:12}}>
+          <div style={{fontSize:12,color:C.m,marginBottom:8}}>Pin a pivot — get coordinates from Google Maps:</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
+            <select value={selPin} onChange={e=>setSelPin(e.target.value)} style={{background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"8px 10px",color:C.t,fontSize:13}}>
+              {PN.map(p=><option key={p}>{p}</option>)}
+            </select>
+            <input value={lat} onChange={e=>setLat(e.target.value)} placeholder="Latitude e.g. -25.48" style={{background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"8px 10px",color:C.t,fontSize:13,boxSizing:"border-box"}}/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:8}}>
+            <input value={lng} onChange={e=>setLng(e.target.value)} placeholder="Longitude e.g. 30.45" style={{background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"8px 10px",color:C.t,fontSize:13,boxSizing:"border-box"}}/>
+            <button onClick={savePin} style={{background:C.g,border:"none",borderRadius:8,color:C.bg,fontWeight:700,fontSize:13,cursor:"pointer"}}>📍 Pin It</button>
+          </div>
+          <div style={{fontSize:11,color:C.d}}>💡 Open Google Maps → find pivot center → long press → copy coordinates</div>
+        </div>
+        <div style={{background:C.deep,border:`1px solid ${C.cb}`,borderRadius:8,padding:"8px 12px",marginBottom:8}}>
+          <div style={{fontSize:12,color:C.g,fontWeight:700}}>🗺 Open Google Maps to find coordinates:</div>
+        </div>
+        <iframe src="https://maps.google.com/maps?q=-13.7,29.52&z=13&output=embed&t=k" style={{width:"100%",height:"calc(100vh - 420px)",border:"none",borderRadius:10}} loading="lazy"/>
+      </div>
+    );
+  };
+
+  // ─── LAYOUT ──────────────────────────────────────────────────────────────────
+  const navItems=[{id:"dashboard",icon:"⬡",l:"Farm"},{id:"map",icon:"🗺",l:"Map"},{id:"planner",icon:"📅",l:"Planner"},{id:"records",icon:"📋",l:"Records"},{id:"tables",icon:"⚡",l:"Tables"}];
+  const titles={dashboard:"Waka Waka",map:"Farm Map",planner:"Weekly Planner",records:"Records",tables:"Speed Tables",detail:sel||""};
+
+  return(
+    <div style={{background:C.bg,minHeight:"100vh",color:C.t,fontFamily:"'Trebuchet MS',sans-serif",maxWidth:480,margin:"0 auto"}}>
+      <div style={{position:"sticky",top:0,zIndex:50,background:C.bg,borderBottom:`1px solid ${C.cb}`,padding:"14px 20px 12px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          {page!=="dashboard"&&<button onClick={()=>changePage("dashboard")} style={{background:"none",border:"none",color:C.g,fontSize:22,cursor:"pointer",padding:0,lineHeight:1}}>←</button>}
+          <div>
+            <div style={{fontSize:page==="dashboard"?22:18,fontWeight:900,color:C.t,fontFamily:"Georgia,serif",letterSpacing:-0.5}}>{titles[page]}</div>
+            {page==="dashboard"&&<div style={{fontSize:10,color:"#2d5a3d",textTransform:"uppercase",letterSpacing:2}}>Pivot Tracker</div>}
+          </div>
+          {page==="dashboard"&&<div style={{marginLeft:"auto",fontSize:11,color:"#2d5a3d"}}>{new Date().toLocaleDateString("en-ZA",{day:"2-digit",month:"short",year:"numeric"})}</div>}
+        </div>
+      </div>
+      <div className="page-content" style={{padding:"16px 16px 0"}} id="pageContent">
+        {page==="dashboard"&&<Dashboard/>}
+        {page==="detail"&&<Detail/>}
+        {page==="records"&&<Records/>}
+        {page==="tables"&&<Tables/>}
+        {page==="planner"&&<Planner/>}
+        {page==="map"&&<Map/>}
+      </div>
+      <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:C.bg,borderTop:`1px solid ${C.cb}`,display:"flex"}}>
+        {navItems.map(n=>(
+          <button key={n.id} onClick={()=>changePage(n.id)} style={{flex:1,padding:"10px 0",background:"none",border:"none",cursor:"pointer",textAlign:"center"}}>
+            <div style={{fontSize:16}}>{n.icon}</div>
+            <div style={{fontSize:9,color:page===n.id?C.g:"#4b5563",fontWeight:page===n.id?700:400,textTransform:"uppercase",letterSpacing:0.5}}>{n.l}</div>
+          </button>
+        ))}
+      </div>
+      <Modal/><WarnModal/><EditSched/><TankCalc/>
+    </div>
+  );
+}
+
+const root=ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App/>);
+
+</script>
+</body>
+</html>
